@@ -5,6 +5,7 @@ using Plots
 
 "simulates in freq domain then converts to time domain"
 function simF(N::Int64,tend::Float64=5.0)
+    tend = 500.0
     nt = 2^23
     nt2 = div(nt,2)
     tpad = 1000*tend
@@ -13,9 +14,9 @@ function simF(N::Int64,tend::Float64=5.0)
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1) # w = (-π/dt):dw:(π/dt-dw) # length(w) != length(t) ???
     vhat = frSN(N,w)
-    u = vcat(ufn(t[1:nt2]), zeros(nt2))
-    uf = fft(u)
-    v = real(ifft(fftshift(vhat).*uf))
+    u = vcat(sqrt(dt)*randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
+    uw = fft(u)
+    v = real(ifft(fftshift(vhat).*uw))
     it = floor(Int, tend/dt)
     # plot(t[1:it],v[1:it]) # plot rendering is so slow for the size of 2^23
     return t[1:it], v[1:it]
