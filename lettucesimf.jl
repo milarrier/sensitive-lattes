@@ -3,9 +3,22 @@ using ControlSystems
 using FFTW
 using Plots
 
+"plots edge nodes far from origin"
+function pltSimF(N::Int64)
+    tend = 200.0
+    p = plot()
+    for n in [N,N-2,N-4]
+        t,v = simF(N,n,tend)
+        plot!(t,v;
+              palette=palette(:Blues_7, rev=true),
+              label="n="*string(n))
+        display(p)
+    end
+    return p
+end
+
 "simulates in freq domain then converts to time domain"
-function simF(N::Int64, tend::Float64=5.0)
-    tend = 50.0
+function simF(N::Int64, n::Int64, tend::Float64=50.0)
     nt = 2^23
     nt2 = div(nt,2)
     tpad = 1000*tend
@@ -13,7 +26,7 @@ function simF(N::Int64, tend::Float64=5.0)
     dw = 2π/tpad
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1) # w = (-π/dt):dw:(π/dt-dw) # length(w) != length(t) ???
-    vhat = frSN(N,w,2)
+    vhat = frSN(N,n,w)
     u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
     uw = fft(u)
     v = real(ifft(fftshift(vhat).*uw))
@@ -23,7 +36,7 @@ function simF(N::Int64, tend::Float64=5.0)
 end
 
 "frequency response of SN calculated node-wise and then summed up"
-function frSN(N::Int64, w, n::Int64=0)
+function frSN(N::Int64, n::Int64, w)
     nw = length(w)
     r = zeros(nw)
     p = tf(1, [0.1,1,0,0])
@@ -31,7 +44,7 @@ function frSN(N::Int64, w, n::Int64=0)
     # p = tf(1, [1,1])
     # c = tf(1, [1,0])
     g = p*c
-    omg = exp(im*2π*n/(2N+1)) # n step from (0,0)
+    omg = exp(im*2π*n/(2N+1)) # n(\le N) steps from (0,0)
     for j = 0:2N
         for k = 0:2N
             Sjk = omg^k/(1+4g-2g*(cos(2π*j/(2N+1))+cos(2π*k/(2N+1))))
