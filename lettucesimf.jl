@@ -4,8 +4,8 @@ using FFTW
 using Plots
 
 "simulates in freq domain then converts to time domain"
-function simF(N::Int64,tend::Float64=5.0)
-    tend = 500.0
+function simF(N::Int64, tend::Float64=5.0)
+    tend = 50.0
     nt = 2^23
     nt2 = div(nt,2)
     tpad = 1000*tend
@@ -13,8 +13,8 @@ function simF(N::Int64,tend::Float64=5.0)
     dw = 2π/tpad
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1) # w = (-π/dt):dw:(π/dt-dw) # length(w) != length(t) ???
-    vhat = frSN(N,w)
-    u = vcat(sqrt(dt)*randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
+    vhat = frSN(N,w,2)
+    u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
     uw = fft(u)
     v = real(ifft(fftshift(vhat).*uw))
     it = floor(Int, tend/dt)
@@ -23,7 +23,7 @@ function simF(N::Int64,tend::Float64=5.0)
 end
 
 "frequency response of SN calculated node-wise and then summed up"
-function frSN(N::Int64,w)
+function frSN(N::Int64, w, n::Int64=0)
     nw = length(w)
     r = zeros(nw)
     p = tf(1, [0.1,1,0,0])
@@ -31,9 +31,10 @@ function frSN(N::Int64,w)
     # p = tf(1, [1,1])
     # c = tf(1, [1,0])
     g = p*c
+    omg = exp(im*2π*n/(2N+1)) # n step from (0,0)
     for j = 0:2N
         for k = 0:2N
-            Sjk = 1/(1+4g-2g*(cos(2π*j/(2N+1))+cos(2π*k/(2N+1))))
+            Sjk = omg^k/(1+4g-2g*(cos(2π*j/(2N+1))+cos(2π*k/(2N+1))))
             r = r + dropdims(freqresp(Sjk,w); dims=(1,2))
         end
     end
@@ -46,7 +47,7 @@ end
 
 #=============================== SANITY CHECKS ================================#
 "compares simF() result with time domain simulation for small N"
-function pltSim(N::Int64,tend::Float64=5.0)
+function pltSim(N::Int64, tend::Float64=5.0)
     tw, vw = simF(N)
     p = plot(tw, vw)
     dt = 0.01;
