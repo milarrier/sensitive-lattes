@@ -3,6 +3,20 @@ using ControlSystems
 using FFTW
 using Plots
 
+"plots all node responses from w00"
+function pltSimF00(N::Int64)
+    tend = 200.0
+    p = plot(layout=(2N+1,2N+1))
+    for m = -N:N
+        for n = -N:N
+            t,v = simF(N,m,n,tend)
+            plot!(t,v, subplot=(N+m)*(2N+1)+N+n+1, legend=false)
+            display(p)
+        end
+    end
+    return p
+end
+
 "plots edge nodes far from origin"
 function pltSimF(N::Int64)
     tend = 200.0
@@ -18,7 +32,7 @@ function pltSimF(N::Int64)
 end
 
 "simulates in freq domain then converts to time domain"
-function simF(N::Int64, n::Int64, tend::Float64=50.0)
+function simF(N::Int64, tend::Float64=50.0)
     nt = 2^23
     nt2 = div(nt,2)
     tpad = 1000*tend
@@ -26,17 +40,23 @@ function simF(N::Int64, n::Int64, tend::Float64=50.0)
     dw = 2π/tpad
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1) # w = (-π/dt):dw:(π/dt-dw) # length(w) != length(t) ???
-    vhat = frSN(N,n,w)
-    u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
-    uw = fft(u)
-    v = real(ifft(fftshift(vhat).*uw))
+    v00 = zeros(nt)
+    for m = -N:N
+        for n = -N:N
+            vhat = frSN(N,m,n,w)
+            u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
+            uw = fft(u)
+            v = real(ifft(fftshift(vhat).*uw))
+            v00 += v
+        end
+    end
     it = floor(Int, tend/dt)
     # plot(t[1:it],v[1:it]) # plot rendering is so slow for the size of 2^23
-    return t[1:it], v[1:it]
+    return t[1:it], v00[1:it]
 end
 
 "frequency response of SN calculated node-wise and then summed up"
-function frSN(N::Int64, n::Int64, w)
+function frSN(N::Int64, m::Int64, n::Int64, w)
     nw = length(w)
     r = zeros(nw)
     p = tf(1, [0.1,1,0,0])
@@ -44,10 +64,11 @@ function frSN(N::Int64, n::Int64, w)
     # p = tf(1, [1,1])
     # c = tf(1, [1,0])
     g = p*c
-    omg = exp(im*2π*n/(2N+1)) # n(\le N) steps from (0,0)
+    omg = exp(-im*2π/(2N+1))
     for j = 0:2N
         for k = 0:2N
-            Sjk = omg^k/(1+4g-2g*(cos(2π*j/(2N+1))+cos(2π*k/(2N+1))))
+            σjk = sin(2π*j/(2N+1))^2+sin(2π*k/(2N+1))^2
+            Sjk = omg^(n*k-m*j)/(1+4g*σjk)
             r = r + dropdims(freqresp(Sjk,w); dims=(1,2))
         end
     end
