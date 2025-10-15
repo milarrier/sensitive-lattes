@@ -3,34 +3,6 @@ using ControlSystems
 using FFTW
 using Plots
 
-"plots all node responses from w00"
-function pltSimF00(N::Int64)
-    tend = 200.0
-    p = plot(layout=(2N+1,2N+1))
-    for m = -N:N
-        for n = -N:N
-            t,v = simF(N,m,n,tend) # for a version of simF that doesn't use the internal m,n loop
-            plot!(t,v, subplot=(N+m)*(2N+1)+N+n+1, legend=false)
-            display(p)
-        end
-    end
-    return p
-end
-
-"plots edge nodes far from origin"
-function pltSimF(N::Int64)
-    tend = 200.0
-    p = plot()
-    for n in [N,N-2,N-4]
-        t,v = simF(N,0,n,tend)
-        plot!(t,v;
-              palette=palette(:Blues_7, rev=true),
-              label="n="*string(n))
-        display(p)
-    end
-    return p
-end
-
 "simulates in freq domain then converts to time domain"
 function simF(N::Int64, tend::Float64=50.0)
     nt = 2^23
@@ -76,7 +48,7 @@ function frSN(N::Int64, m::Int64, n::Int64, w)
     if !isempty(iw0)
         r[iw0[1]] = 1 # for s=0 only S00=1/1 survives the rest are 0/(0+c)
     end
-    r = r/(2N+1)^2 # *omg^(m-n) # from (-m,-n) to (0,0) not sure it matters
+    r = r/(2N+1)^2 *omg^(m-n) # from (-m,-n) to (0,0) not sure it matters
 end
 
 #=============================== SANITY CHECKS ================================#
@@ -129,6 +101,34 @@ function pltFR(Ns::Vector{Int64})
               yscale=:log10,
               xscale=:log10,
               label="N="*string(N))
+        display(p)
+    end
+    return p
+end
+
+"plots all node responses from w00"
+function pltSimF00(N::Int64)
+    tend = 200.0
+    p = plot(layout=(2N+1,2N+1))
+    for m = -N:N
+        for n = -N:N
+            t,v = simF(N,m,n,tend) # for a version of simF that doesn't use the internal m,n loop
+            plot!(t,v, subplot=(N+m)*(2N+1)+N+n+1, legend=false)
+            display(p)
+        end
+    end
+    return p
+end
+
+"plots edge nodes far from origin"
+function pltSimF(N::Int64)
+    tend = 200.0
+    p = plot()
+    for n in [N,N-2,N-4]
+        t,v = simF(N,0,n,tend)
+        plot!(t,v;
+              palette=palette(:Blues_7, rev=true),
+              label="n="*string(n))
         display(p)
     end
     return p
