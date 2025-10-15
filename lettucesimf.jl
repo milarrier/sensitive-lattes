@@ -9,7 +9,7 @@ function pltSimF00(N::Int64)
     p = plot(layout=(2N+1,2N+1))
     for m = -N:N
         for n = -N:N
-            t,v = simF(N,m,n,tend)
+            t,v = simF(N,m,n,tend) # for a version of simF that doesn't use the internal m,n loop
             plot!(t,v, subplot=(N+m)*(2N+1)+N+n+1, legend=false)
             display(p)
         end
@@ -22,7 +22,7 @@ function pltSimF(N::Int64)
     tend = 200.0
     p = plot()
     for n in [N,N-2,N-4]
-        t,v = simF(N,n,tend)
+        t,v = simF(N,0,n,tend)
         plot!(t,v;
               palette=palette(:Blues_7, rev=true),
               label="n="*string(n))
@@ -68,7 +68,7 @@ function frSN(N::Int64, m::Int64, n::Int64, w)
     for j = 0:2N
         for k = 0:2N
             σjk = sin(2π*j/(2N+1))^2+sin(2π*k/(2N+1))^2
-            Sjk = omg^(n*k-m*j)/(1+4g*σjk)
+            Sjk = omg^(-m*j+n*k)/(1+4g*σjk)
             r = r + dropdims(freqresp(Sjk,w); dims=(1,2))
         end
     end
@@ -76,7 +76,7 @@ function frSN(N::Int64, m::Int64, n::Int64, w)
     if !isempty(iw0)
         r[iw0[1]] = 1 # for s=0 only S00=1/1 survives the rest are 0/(0+c)
     end
-    r = r/(2N+1)^2
+    r = r/(2N+1)^2 # *omg^(m-n) # from (-m,-n) to (0,0) not sure it matters
 end
 
 #=============================== SANITY CHECKS ================================#
