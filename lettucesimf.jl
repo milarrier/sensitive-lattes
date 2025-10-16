@@ -37,13 +37,15 @@ function frSN(N::Int64, m::Int64, n::Int64, w)
     # c = tf(1, [1,0])
     g = p*c
     omg = exp(-im*2π/(2N+1))
-    for j = 0:2N
-        for k = 0:2N
-            σjk = sin(2π*j/(2N+1))^2+sin(2π*k/(2N+1))^2
-            Sjk = omg^(-m*j+n*k)/(1+4g*σjk)
-            r = r + dropdims(freqresp(Sjk,w); dims=(1,2))
-        end
-    end
+    rl = ReentrantLock()
+    Threads.@threads for (j,k) in collect(Iterators.product(0:2N,0:2N))
+        σjk = sin(2π*j/(2N+1))^2+sin(2π*k/(2N+1))^2
+        Sjk = omg^(-m*j+n*k)/(1+4g*σjk)
+        lock(rl)
+        r = r + dropdims(freqresp(Sjk,w); dims=(1,2))
+        unlock(rl)
+        # @show (j,k)
+    end # apparently lock conflicted but results look the same as unthreaded
     iw0 = findall(iszero, w) # need to handle zero frequency separately
     if !isempty(iw0)
         r[iw0[1]] = 1 # for s=0 only S00=1/1 survives the rest are 0/(0+c)
