@@ -30,23 +30,21 @@ end
 "frequency response of SN calculated node-wise and then summed up"
 function frSN(N::Int64, m::Int64, n::Int64, w)
     nw = length(w)
-    r = zeros(nw)
+    r = zeros(ComplexF64, nw, Threads.nthreads())
     p = tf(1, [0.1,1,0,0])
     c = tf([2,1], [0.05,1])
     # p = tf(1, [1,1])
     # c = tf(1, [1,0])
     g = p*c
     omg = exp(-im*2π/(2N+1))
-    rl = ReentrantLock()
     Threads.@threads for (j,k) in collect(Iterators.product(0:2N,0:2N))
         σjk = sin(2π*j/(2N+1))^2+sin(2π*k/(2N+1))^2
         Sjk = omg^(-m*j+n*k)/(1+4g*σjk)
-        lock(rl)
-        r = r + dropdims(freqresp(Sjk,w); dims=(1,2))
-        unlock(rl)
+        r[:,Threads.threadid()] += dropdims(freqresp(Sjk,w); dims=(1,2))
         # @show (j,k)
-    end # apparently lock conflicted but results look the same as unthreaded
-    iw0 = findall(iszero, w) # need to handle zero frequency separately
+    end
+    r = sum(r, dims=2)
+    iw0 = findall(iszero, w) # need to handle zero frequency separately with this g
     if !isempty(iw0)
         r[iw0[1]] = 1 # for s=0 only S00=1/1 survives the rest are 0/(0+c)
     end
@@ -135,6 +133,28 @@ function pltSimF(N::Int64)
     end
     return p
 end
+
+# function frSN1(N::Int64, m::Int64, n::Int64, w)
+#     nw = length(w)
+#     r = zeros(nw)
+#     p = tf(1, [0.1,1,0,0])
+#     c = tf([2,1], [0.05,1])
+#     # p = tf(1, [1,1])
+#     # c = tf(1, [1,0])
+#     g = p*c
+#     omg = exp(-im*2π/(2N+1))
+#     for (j,k) in collect(Iterators.product(0:2N,0:2N))
+#         σjk = sin(2π*j/(2N+1))^2+sin(2π*k/(2N+1))^2
+#         Sjk = omg^(-m*j+n*k)/(1+4g*σjk)
+#         r = r + dropdims(freqresp(Sjk,w); dims=(1,2))
+#         # @show (j,k)
+#     end
+#     iw0 = findall(iszero, w) # need to handle zero frequency separately
+#     if !isempty(iw0)
+#         r[iw0[1]] = 1 # for s=0 only S00=1/1 survives the rest are 0/(0+c)
+#     end
+#     r = r/(2N+1)^2 *omg^(m-n) # from (-m,-n) to (0,0) not sure it matters
+# end
 
 # function pltFrSjk(N)
 #     h = plot()
