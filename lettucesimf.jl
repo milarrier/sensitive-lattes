@@ -13,14 +13,12 @@ function simF(N::Int64, tend::Float64=50.0)
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1) # w = (-π/dt):dw:(π/dt-dw) # length(w) != length(t) ???
     v00 = zeros(nt)
-    for m = -N:N
-        for n = -N:N
-            vhat = frSN(N,m,n,w)
-            u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
-            uw = fft(u)
-            v = real(ifft(fftshift(vhat).*uw))
-            v00 += v
-        end
+    for (m,n) in collect(Iterators.product(-N:N,-N:N))
+        vhat = frSN(N,m,n,w)
+        u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
+        uw = fft(u)
+        v = real(ifft(fftshift(vhat).*uw))
+        v00 += v
     end
     it = floor(Int, tend/dt)
     # plot(t[1:it],v[1:it]) # plot rendering is so slow for the size of 2^23
@@ -133,6 +131,29 @@ function pltSimF(N::Int64)
     end
     return p
 end
+
+# "threaded simF() doesn't help much and FFTW in loop seems to create lock conflicts"
+# function simFth(N::Int64, tend::Float64=50.0)
+#     nt = 2^23
+#     nt2 = div(nt,2)
+#     tpad = 1000*tend
+#     dt = tpad/nt
+#     dw = 2π/tpad
+#     t = dt*(0:nt-1)
+#     w = dw*(-nt2:nt2-1)
+#     it = floor(Int, tend/dt)
+#     v00 = zeros(it, Threads.nthreads())
+#     Threads.@threads for (m,n) in collect(Iterators.product(-N:N,-N:N))
+#         vhat = frSN(N,m,n,w)
+#         u = vcat(randn(nt2), zeros(nt2))
+#         v = real(vhat.*u)
+#         uw = fft(u)
+#         v = real(ifft(fftshift(vhat).*uw))
+#         v00[:,Threads.threadid()] += v[1:it]
+#     end
+#     v00 = sum(v00, dims=2)
+#     return t[1:it], v00
+# end
 
 # function frSN1(N::Int64, m::Int64, n::Int64, w)
 #     nw = length(w)
