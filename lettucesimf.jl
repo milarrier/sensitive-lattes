@@ -50,55 +50,72 @@ function frSN(N::Int64, m::Int64, n::Int64, w)
 end
 
 #=============================== SANITY CHECKS ================================#
-"compares simF() result with time domain simulation for small N"
-function pltSim(N::Int64, tend::Float64=5.0)
-    tw, vw = simF(N)
-    p = plot(tw, vw)
-    dt = 0.01;
-    t = 0:dt:tend;
-    u = ufn(t)
-    v,tout,x,uout = lsim(SN(N), u', t)
-    plot!(t, v[1,:], line=:dot);
-    return p
-end
+# "compares simF() result with time domain simulation for small N"
+# function pltSim(N::Int64, tend::Float64=5.0)
+#     tw, vw = simF(N)
+#     p = plot(tw, vw)
+#     dt = 0.01;
+#     t = 0:dt:tend;
+#     u = ufn(t)
+#     v,tout,x,uout = lsim(SN(N), u', t)
+#     plot!(t, v[1,:], line=:dot);
+#     return p
+# end
 
 # ufn(t) = sin.(10t)
 # ufn(t) = sin.(t)
 
-"finite sensitivity function in state-space form for lsim accuracy"
-function SN(N::Int64)
-    A = [0 1 0; 0 0 1; 0 0 -10]
-    B = [0; 0; 10]
-    C = [1 0 0]
-    Ak = -20
-    Bk = 1
-    Ck = -780
-    Dk = 40
-    p = ss(A,B,C,0.0)
-    c = ss(Ak,Bk,Ck,Dk)
-    g = minreal(p*c)
-    S = 0
-    for j = 0:2N
-        for k = 0:2N
-            S += 1/(1+4g-2g*(cos(2π*j/(2N+1))+cos(2π*k/(2N+1))))
-        end
-    end
-    return minreal(S)/(2N+1)^2
-end
+# "finite sensitivity function in state-space form for lsim accuracy"
+# function SN(N::Int64)
+#     A = [0 1 0; 0 0 1; 0 0 -10]
+#     B = [0; 0; 10]
+#     C = [1 0 0]
+#     Ak = -20
+#     Bk = 1
+#     Ck = -780
+#     Dk = 40
+#     p = ss(A,B,C,0.0)
+#     c = ss(Ak,Bk,Ck,Dk)
+#     g = minreal(p*c)
+#     S = 0
+#     for j = 0:2N
+#         for k = 0:2N
+#             S += 1/(1+4g-2g*(cos(2π*j/(2N+1))+cos(2π*k/(2N+1))))
+#         end
+#     end
+#     return minreal(S)/(2N+1)^2
+# end
 
-"a bunch of freq response curves for varying N on the same plot"
-function pltFR(Ns::Vector{Int64})
-    p = plot()
+# "a bunch of freq response curves for varying N"
+# function pltFR(Ns::Vector{Int64})
+#     p = plot()
+#     w = [10.0^t for t in range(-2.0,2.0,10000)]
+#     for N in Ns
+#         vhat = frSN(N,w)
+#         plot!(w, abs.(vhat);
+#               palette=palette(:Blues, rev=true),
+#               xlims=(1e-2,1e2),
+#               # ylims=(1e-5,1e1),
+#               yscale=:log10,
+#               xscale=:log10,
+#               label="N="*string(N))
+#         display(p)
+#     end
+#     return p
+# end
+
+"plots frequency response of all nodes to w00"
+function pltFRSN(N::Int64)
+    p = plot(layout=(2N+1,2N+1))
     w = [10.0^t for t in range(-2.0,2.0,10000)]
-    for N in Ns
-        vhat = frSN(N,w)
-        plot!(w, abs.(vhat);
-              palette=palette(:Blues, rev=true),
-              xlims=(1e-2,1e2),
-              # ylims=(1e-5,1e1),
-              yscale=:log10,
-              xscale=:log10,
-              label="N="*string(N))
+    for (m,n) in collect(Iterators.product(-N:N,-N:N))
+        r = frSN(N,m,n,w)
+        plot!(w,abs.(r);
+              subplot=(N+m)*(2N+1)+N+n+1,
+              legend=false,
+              # xlims=(1e-2,1e0),
+              # ylims=(-1e-2,0.25),
+              xscale=:log10)
         display(p)
     end
     return p
@@ -108,28 +125,44 @@ end
 function pltSimF00(N::Int64)
     tend = 200.0
     p = plot(layout=(2N+1,2N+1))
-    for m = -N:N
-        for n = -N:N
-            t,v = simF(N,m,n,tend) # for a version of simF that doesn't use the internal m,n loop
-            plot!(t,v, subplot=(N+m)*(2N+1)+N+n+1, legend=false)
-            display(p)
-        end
+    for (m,n) in collect(Iterators.product(-N:N,-N:N))
+        t,v = simF00(N,m,n,tend) # a version of simF() that does not sum over (m,n)
+        plot!(t,v, subplot=(N+m)*(2N+1)+N+n+1, legend=false)
+        display(p)
     end
     return p
 end
 
-"plots edge nodes far from origin"
-function pltSimF(N::Int64)
-    tend = 200.0
-    p = plot()
-    for n in [N,N-2,N-4]
-        t,v = simF(N,0,n,tend)
-        plot!(t,v;
-              palette=palette(:Blues_7, rev=true),
-              label="n="*string(n))
-        display(p)
-    end
-    return p
+# "plots edge nodes far from origin"
+# function pltSimF(N::Int64)
+#     tend = 200.0
+#     p = plot()
+#     for n in [N,N-2,N-4]
+#         t,v = simF(N,0,n,tend)
+#         plot!(t,v;
+#               palette=palette(:Blues_7, rev=true),
+#               label="n="*string(n))
+#         display(p)
+#     end
+#     return p
+# end
+
+"simulates freq->time response from (m,n) to (0,0)"
+function simF00(N::Int64, m::Int64, n::Int64, tend::Float64=50.0)
+    nt = 2^23
+    nt2 = div(nt,2)
+    tpad = 1000*tend
+    dt = tpad/nt
+    dw = 2π/tpad
+    t = dt*(0:nt-1)
+    w = dw*(-nt2:nt2-1)
+    vhat = frSN(N,m,n,w)
+    u = vcat(randn(nt2), zeros(nt2))
+    v = real(vhat.*u)
+    uw = fft(u)
+    v = real(ifft(fftshift(vhat).*uw))
+    it = floor(Int, tend/dt)
+    return t[1:it], v[1:it]
 end
 
 # "threaded simF() doesn't help much and FFTW in loop seems to create lock conflicts"
@@ -155,6 +188,7 @@ end
 #     return t[1:it], v00
 # end
 
+# "single thread version of frSN()"
 # function frSN1(N::Int64, m::Int64, n::Int64, w)
 #     nw = length(w)
 #     r = zeros(nw)
@@ -168,7 +202,6 @@ end
 #         σjk = sin(2π*j/(2N+1))^2+sin(2π*k/(2N+1))^2
 #         Sjk = omg^(-m*j+n*k)/(1+4g*σjk)
 #         r = r + dropdims(freqresp(Sjk,w); dims=(1,2))
-#         # @show (j,k)
 #     end
 #     iw0 = findall(iszero, w) # need to handle zero frequency separately
 #     if !isempty(iw0)
