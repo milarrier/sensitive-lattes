@@ -3,6 +3,40 @@ using ControlSystems
 using FFTW
 using Plots
 
+"a version of simF() that uses frSN() on only the upper tri of a quarandt"
+function simFred(N::Int64, tend::Float64=50.0)
+    nt = 2^23
+    nt2 = div(nt,2)
+    tpad = 1000*tend
+    dt = tpad/nt
+    dw = 2π/tpad
+    t = dt*(0:nt-1)
+    w = dw*(-nt2:nt2-1)
+    v00 = zeros(nt)
+    for m = 0:N
+        for n = m:N
+            vhat = frSN(N,m,n,w)
+            if m==0 || m==n
+                if n==0
+                    nu = 1
+                else
+                    nu = 4
+                end
+            else
+                nu = 8
+            end
+            for iu = 1:nu
+                u = vcat(randn(nt2), zeros(nt2))
+                uw = fft(u)
+                v = real(ifft(fftshift(vhat).*uw))
+                v00 += v
+            end
+        end
+    end
+    it = floor(Int, tend/dt)
+    return t[1:it], v00[1:it]
+end
+
 "simulates in freq domain then converts to time domain"
 function simF(N::Int64, tend::Float64=50.0)
     nt = 2^23
@@ -46,7 +80,7 @@ function frSN(N::Int64, m::Int64, n::Int64, w)
     if !isempty(iw0)
         r[iw0[1]] = 1 # for s=0 only S00=1/1 survives the rest are 0/(0+c)
     end
-    r = r/(2N+1)^2 *omg^(m-n) # from (-m,-n) to (0,0) not sure it matters
+    r = r/(2N+1)^2 * omg^(m-n) # the (j,k)-independent factor from (-m,-n) to (0,0)
 end
 
 #=============================== SANITY CHECKS ================================#
@@ -157,7 +191,7 @@ function simF00(N::Int64, m::Int64, n::Int64, tend::Float64=50.0)
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1)
     vhat = frSN(N,m,n,w)
-    u = vcat(randn(nt2), zeros(nt2))
+    u = vcat(randn(Xoshiro(1),nt2), zeros(nt2))
     v = real(vhat.*u)
     uw = fft(u)
     v = real(ifft(fftshift(vhat).*uw))
