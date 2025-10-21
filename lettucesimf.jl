@@ -3,7 +3,7 @@ using ControlSystems
 using FFTW
 using Plots
 
-"a version of simF() that uses frSN() on only the upper tri of a quarandt"
+"uses frSN() only on the upper tri of a quarandt to calculate v(center)"
 function simFred(N::Int64, tend::Float64=50.0)
     nt = 2^23
     nt2 = div(nt,2)
@@ -32,6 +32,37 @@ function simFred(N::Int64, tend::Float64=50.0)
                 v00 += v
             end
         end
+    end
+    it = floor(Int, tend/dt)
+    return t[1:it], v00[1:it]
+end
+
+function simF1D(N::Int64, tend::Float64=50.0)
+    nt = 2^23
+    nt2 = div(nt,2)
+    tpad = 1000*tend
+    dt = tpad/nt
+    dw = 2π/tpad
+    t = dt*(0:nt-1)
+    w = dw*(-nt2:nt2-1)
+    v00 = zeros(nt)
+    u = vcat(randn(nt2), zeros(nt2))
+    uw = fft(u)
+    for n = 0:N
+        vhat = frSN(N,0,n,w)
+        if n==0
+            nu = 1
+        else
+            nu = 2
+        end
+        # for iu = 1:nu
+        #     u = vcat(randn(nt2), zeros(nt2))
+        #     uw = fft(u)
+        #     v = real(ifft(fftshift(vhat).*uw))
+        #     v00 += v
+        # end
+        v = real(ifft(fftshift(vhat).*uw))
+        v00 += nu.*v
     end
     it = floor(Int, tend/dt)
     return t[1:it], v00[1:it]
@@ -71,7 +102,8 @@ function frSN(N::Int64, m::Int64, n::Int64, w)
     omg = exp(-im*2π/(2N+1))
     Threads.@threads for (j,k) in collect(Iterators.product(0:2N,0:2N))
         σjk = sin(2π*j/(2N+1))^2+sin(2π*k/(2N+1))^2
-        Sjk = omg^(-m*j+n*k)/(1+4g*σjk)
+        # Sjk = omg^(-m*j+n*k)/(1+4g*σjk) # w(m,n) <=> v(N+1,N+1)
+        Sjk = omg^((N-m)*j+(N+n+1)*k)/(1+4g*σjk) # w(m,n) => v(2N+1,0)
         r[:,Threads.threadid()] += dropdims(freqresp(Sjk,w); dims=(1,2))
         # @show (j,k)
     end
@@ -80,7 +112,7 @@ function frSN(N::Int64, m::Int64, n::Int64, w)
     if !isempty(iw0)
         r[iw0[1]] = 1 # for s=0 only S00=1/1 survives the rest are 0/(0+c)
     end
-    r = r/(2N+1)^2 * omg^(m-n) # the (j,k)-independent factor from (-m,-n) to (0,0)
+    r = r/(2N+1)^2 * omg^(m-n) # the (j,k)-independent factor from (-m,-n) to any
 end
 
 #=============================== SANITY CHECKS ================================#
