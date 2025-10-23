@@ -37,7 +37,7 @@ function simFred(N::Int64, tend::Float64=50.0)
     return t[1:it], v00[1:it]
 end
 
-function simF1D(N::Int64, tend::Float64=50.0)
+function simFaux1D(N::Int64, tend::Float64=50.0)
     nt = 2^23
     nt2 = div(nt,2)
     tpad = 1000*tend
@@ -101,7 +101,7 @@ function frSN(N::Int64, m::Int64, n::Int64, w)
     g = p*c
     omg = exp(-im*2π/(2N+1))
     Threads.@threads for (j,k) in collect(Iterators.product(0:2N,0:2N))
-        σjk = sin(2π*j/(2N+1))^2+sin(2π*k/(2N+1))^2
+        σjk = sin(π*j/(2N+1))^2+sin(π*k/(2N+1))^2
         # Sjk = omg^(-m*j+n*k)/(1+4g*σjk) # w(m,n) <=> v(N+1,N+1)
         Sjk = omg^((N-m)*j+(N+n+1)*k)/(1+4g*σjk) # w(m,n) => v(2N+1,0)
         r[:,Threads.threadid()] += dropdims(freqresp(Sjk,w); dims=(1,2))
