@@ -13,3 +13,9 @@ function lapNeulet(N::Int64)
     dl = fill(1.0,N-1)
     L = Tridiagonal(dl, d, dl)
 end
+
+function WhatN(N::Int64, k::Int64, l::Int64)
+    θ = π/(2N+1)
+    What = [sin((2m-1)*k*θ)*sin((2n-1)*l*θ) for (m,n) in collect(Iterators.product(1:N,1:N))]
+    return 4What/(2N+1)
+end
