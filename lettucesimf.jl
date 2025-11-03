@@ -60,7 +60,7 @@ function simF(N::Int64, tend::Float64=50.0)
 end
 
 "frequency response of SN from (k,l) to (N+1,N+1) obtained node-wise and then summed up"
-function frSN(N::Int64, (k::Int64, l::Int64), w, (m::Int64=N+1, n::Int64=N+1))
+function frSN(N::Int64, (k,l)::Tuple{Int64,Int64}, w, (m,n)::Tuple{Int64,Int64})
     nw = length(w)
     r = zeros(ComplexF64, nw, Threads.nthreads())
     p = tf(1, [0.1,1,0,0])
@@ -72,7 +72,7 @@ function frSN(N::Int64, (k::Int64, l::Int64), w, (m::Int64=N+1, n::Int64=N+1))
     Threads.@threads for (i,j) in collect(Iterators.product(0:2N,0:2N))
         σij = sin(π*i/(2N+1))^2+sin(π*j/(2N+1))^2
         Sij = omg^(-(m-k)*i+(n-l)*j)/(1+4g*σij)
-        r[:,Threads.threadid()] += dropdims(freqresp(Sjk,w); dims=(1,2))
+        r[:,Threads.threadid()] += dropdims(freqresp(Sij,w); dims=(1,2))
         # @show (j,k)
     end
     r = sum(r, dims=2)
