@@ -12,20 +12,23 @@ function simNeuletF(N::Int64, tend::Float64=50.0)
     dw = 2π/tpad
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1)
+    it = floor(Int, tend/dt)
     v00 = zeros(nt)
+    # p = plot(layout=(N,N))
     for (m,n) in collect(Iterators.product(1:N,1:N))
-        vhat = frSNeulet(N,(m,n),(N,N),w)
-        u = vcat(randn(nt2), zeros(nt2))
-        uw = fft(u)
+        vhat = frSNeulet(N,(1,1),(m,n),w)
+        uw = fft(vcat(randn(nt2), zeros(nt2))) # fft(vcat(ufn(t[1:nt2]), zeros(nt2)))
         v = real(ifft(fftshift(vhat).*uw))
         v00 += v
+        # plot!(t[1:it],v[1:it], subplot=N*(m-1)+n, legend=false)
+        # display(p)
     end
-    it = floor(Int, tend/dt)
     return t[1:it], v00[1:it]
+    # return p
 end
 
 "frequency response from (k,l) to (m,n) obtained node-wise and then summed up"
-function frSNeulet(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64}, w::Vector{Float64})
+function frSNeulet(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64}, w)
     nw = length(w)
     r = zeros(ComplexF64, nw, Threads.nthreads())
     p = tf(1, [0.1,1,0,0])
@@ -36,7 +39,7 @@ function frSNeulet(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64
     θ = π/(2N+1)
     Threads.@threads for (i,j) in collect(Iterators.product(1:N,1:N))
         σij = sin((2i-1)θ/2)^2+sin((2j-1)θ/2)^2
-        Sij = sin((2i-1)k*θ)*sin((2j-1)l*θ)*sin((2i-1)m*θ)*sin((2j-1)l*θ)/(1+4g*σij)
+        Sij = sin((2i-1)k*θ)*sin((2j-1)l*θ)*sin((2i-1)m*θ)*sin((2j-1)n*θ)/(1+4g*σij)
         r[:,Threads.threadid()] += dropdims(freqresp(Sij,w); dims=(1,2))
     end
     r = sum(r, dims=2)
@@ -44,25 +47,58 @@ function frSNeulet(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64
     r = 16r/(2N+1)^2
 end
 
-"finite sensitivity function in state-space form"
-function SNeulet(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64})
-    A = [0 1 0; 0 0 1; 0 0 -10]
-    B = [0; 0; 10]
-    C = [1 0 0]
-    Ak = -20
-    Bk = 1
-    Ck = -780
-    Dk = 40
-    p = ss(A,B,C,0.0)
-    c = ss(Ak,Bk,Ck,Dk)
-    g = minreal(p*c)
-    θ = π/(2N+1)
-    S = 0
-    for (i,j) in collect(Iterators.product(1:N,1:N))
-        σij = sin((2i-1)θ/2)^2+sin((2j-1)θ/2)^2
-        S += sin((2i-1)k*θ)*sin((2j-1)l*θ)*sin((2i-1)m*θ)*sin((2j-1)l*θ)/(1+4g*σij)
+#=============================== SANITY CHECKS ================================#
+# "compares simNeuletF result with time domain simulation for small N"
+# function pltSimNeulet(N::Int64, tend::Float64=50.0)
+#     tw, vw = simNeuletF(N,tend)
+#     p = plot(tw, vw)
+#     dt = 0.01;
+#     t = 0:dt:tend;
+#     u = ufn(t)
+#     v,tout,x,uout = lsim(SNeulet(N,(1,1),(N,N)), u', t)
+#     plot!(t, v[1,:], line=:dot);
+#     return p
+# end
+
+# ufn(t) = sin.(π/5*t)
+# ufn(t) = sin.(t)
+
+# "finite sensitivity function in state-space form"
+# function SNeulet(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64})
+#     A = [0 1 0; 0 0 1; 0 0 -10]
+#     B = [0; 0; 10]
+#     C = [1 0 0]
+#     Ak = -20
+#     Bk = 1
+#     Ck = -780
+#     Dk = 40
+#     p = ss(A,B,C,0.0)
+#     c = ss(Ak,Bk,Ck,Dk)
+#     g = minreal(p*c)
+#     θ = π/(2N+1)
+#     S = 0
+#     for (i,j) in collect(Iterators.product(1:N,1:N))
+#         σij = sin((2i-1)θ/2)^2+sin((2j-1)θ/2)^2
+#         S += sin((2i-1)k*θ)*sin((2j-1)l*θ)*sin((2i-1)m*θ)*sin((2j-1)n*θ)/(1+4g*σij)
+#     end
+#     return minreal(S)*16/(2N+1)^2
+# end
+
+"plots frequency response of all nodes to w00"
+function pltFRSNeulet(N::Int64)
+    p = plot(layout=(N,N))
+    w = [10.0^t for t in range(-2.0,2.0,10000)]
+    for (m,n) in collect(Iterators.product(1:N,1:N))
+        r = frSNeulet(N,(1,1),(m,n),w)
+        plot!(w,abs.(r);
+              subplot=N*(n-1)+m,
+              legend=false,
+              # xlims=(1e-2,1e0),
+              # ylims=(-1e-2,0.25),
+              xscale=:log10)
+        display(p)
     end
-    return minreal(S)*16/(2N+1)^2
+    return p
 end
 
 # "eigs of Laplacian with mixed Dirichlet Neumann BCs"
@@ -86,4 +122,20 @@ end
 #     θ = π/(2N+1)
 #     What = [sin((2m-1)*k*θ)*sin((2n-1)*l*θ) for (m,n) in collect(Iterators.product(1:N,1:N))]
 #     return 4What/(2N+1)
+# end
+
+# function matSij(N::Int64)
+#     θ = π/(2N+1)
+#     k = 1
+#     l = 1
+#     S = zeros(N,N)
+#     for (m,n) in collect(Iterators.product(1:N,1:N))
+#         Sij = 0
+#         for (i,j) in collect(Iterators.product(1:N,1:N))
+#             σij = sin((2i-1)θ/2)^2+sin((2j-1)θ/2)^2
+#             Sij += sin((2i-1)k*θ)*sin((2j-1)l*θ)*sin((2i-1)m*θ)*sin((2j-1)n*θ)/(1+4σij)
+#         end
+#         S[m,n] = Sij
+#     end
+#     return S
 # end
