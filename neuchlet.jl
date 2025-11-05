@@ -15,14 +15,14 @@ function simNeuletF(N::Int64, tend::Float64=50.0)
     it = floor(Int, tend/dt)
     v00 = zeros(nt)
     # p = plot(layout=(N,N))
-    for (m,n) in collect(Iterators.product(1:N,1:N))
-        vhat = frSNeulet(N,(1,1),(m,n),w)
-        uw = fft(vcat(randn(nt2), zeros(nt2))) # fft(vcat(ufn(t[1:nt2]), zeros(nt2)))
+    # for (m,n) in collect(Iterators.product(1:N,1:N))
+        vhat = frSNeulet(N,(1,1),(N,N),w)
+        uw = fft(vcat(randl(t[1:nt2]), zeros(nt2))) # fft(vcat(randn(nt2), zeros(nt2)))
         v = real(ifft(fftshift(vhat).*uw))
         v00 += v
         # plot!(t[1:it],v[1:it], subplot=N*(m-1)+n, legend=false)
         # display(p)
-    end
+    # end
     return t[1:it], v00[1:it]
     # return p
 end
@@ -47,13 +47,22 @@ function frSNeulet(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64
     r = 16r/(2N+1)^2
 end
 
+"random noise passed through an LPF"
+function randl(t)
+    nt = length(t)
+    u = randn(nt)
+    s = tf("s")
+    out = lsim(1/(s+1), u', t)
+    return out.y[1,:]
+end
+
 #=============================== SANITY CHECKS ================================#
 # "compares simNeuletF result with time domain simulation for small N"
 # function pltSimNeulet(N::Int64, tend::Float64=50.0)
 #     tw, vw = simNeuletF(N,tend)
 #     p = plot(tw, vw)
-#     dt = 0.01;
-#     t = 0:dt:tend;
+#     dt = 0.01
+#     t = 0:dt:tend
 #     u = ufn(t)
 #     v,tout,x,uout = lsim(SNeulet(N,(1,1),(N,N)), u', t)
 #     plot!(t, v[1,:], line=:dot);
