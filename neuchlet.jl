@@ -27,6 +27,31 @@ function simNeuletF(N::Int64, tend::Float64=50.0)
     # return p
 end
 
+"from noise on center row to south point"
+function simNeuletFaux1D(N::Int64, tend::Float64=50.0)
+    if iseven(N)
+        error("pick an odd number svp")
+    end
+    nt = 2^23
+    nt2 = div(nt,2)
+    tpad = 1000*tend
+    dt = tpad/nt
+    dw = 2π/tpad
+    t = dt*(0:nt-1)
+    w = dw*(-nt2:nt2-1)
+    v00 = zeros(nt)
+    u = vcat(randn(nt2), zeros(nt2))
+    uw = fft(u)
+    k = cld(N+1,2)
+    for l = 1:N
+        vhat = frSNeulet(N,(k,l),(N,k),w)
+        v = real(ifft(fftshift(vhat).*uw))
+        v00 += v
+    end
+    it = floor(Int, tend/dt)
+    return t[1:it], v00[1:it]
+end
+
 "frequency response from (k,l) to (m,n) obtained node-wise and then summed up"
 function frSNeulet(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64}, w)
     nw = length(w)
