@@ -4,23 +4,32 @@ using FFTW
 using Plots
 
 "simulates in freq domain then converts to time domain"
-function simNeuletF1D(N::Int64, tend::Float64=50.0)
-    nt = 2^24
+function simNeuletF1D(N::Int64, tend::Float64=81.92)
+    nt = 2^23
     nt2 = div(nt,2)
-    tpad = 1000*tend
+    tpad = 1024*tend
     dt = tpad/nt
     dw = 2π/tpad
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1)
     it = floor(Int, tend/dt)
     v00 = zeros(nt)
-    for m in 1:3
+    # for m in 1:N
+    m = ceil(Int,N/2)
         vhat = frSNeulet1D(N,m,N,w)
-        uw = fft(vcat(randn(nt2), zeros(nt2)))
+        uw = fft(vcat(randp(N,nt2), zeros(nt2)))
         v = real(ifft(fftshift(vhat).*uw))
         v00 += v
-    end
+    # end
     return t[1:it], v00[1:it]
+end
+
+function randp(N,nt)
+    u = zeros(nt)
+    for i = 1:nt
+        u[i] = sol.W[i][ceil(Int,N/2)]
+    end
+    return u
 end
 
 "frequency response from k to m obtained node-wise and then summed up"
