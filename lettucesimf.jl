@@ -7,7 +7,7 @@ using Plots
 function simFred(N::Int64, tend::Float64=50.0)
     nt = 2^23
     nt2 = div(nt,2)
-    tpad = 1000*tend
+    tpad = 1024*tend
     dt = tpad/nt
     dw = 2π/tpad
     t = dt*(0:nt-1)
@@ -15,7 +15,7 @@ function simFred(N::Int64, tend::Float64=50.0)
     v00 = zeros(nt)
     for m = 0:N
         for n = m:N
-            vhat = frSN(N,m,n,w)
+            vhat = frSN(N,(m,n),(N+1,N+1),w)
             if m==0 || m==n
                 if n==0
                     nu = 1
@@ -41,26 +41,28 @@ end
 function simF(N::Int64, tend::Float64=50.0)
     nt = 2^23
     nt2 = div(nt,2)
-    tpad = 1000*tend
+    tpad = 1024*tend
     dt = tpad/nt
     dw = 2π/tpad
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1) # w = (-π/dt):dw:(π/dt-dw) # length(w) != length(t) ???
     v00 = zeros(nt)
-    for (m,n) in collect(Iterators.product(-N:N,-N:N))
-        vhat = frSN(N,m,n,w)
-        u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
-        uw = fft(u)
+    u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
+    uw = fft(u)
+    for (k,l) in collect(Iterators.product(1:1,1:2N+1))
+        vhat = frSN(N,(k,l),(N+1,N+1),w)
+        # u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
+        # uw = fft(u)
         v = real(ifft(fftshift(vhat).*uw))
         v00 += v
     end
     it = floor(Int, tend/dt)
     # plot(t[1:it],v[1:it]) # plot rendering is so slow for the size of 2^23
-    return t[1:it], v00[1:it]
+    return t[1:it], v00[1:it] #, u[1:it]
 end
 
-"frequency response of SN from (k,l) to (N+1,N+1) obtained node-wise and then summed up"
-function frSN(N::Int64, (k,l)::Tuple{Int64,Int64}, w, (m,n)::Tuple{Int64,Int64})
+"frequency response of SN from (k,l) to (m,n) obtained node-wise and then summed up"
+function frSN(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64}, w)
     nw = length(w)
     r = zeros(ComplexF64, nw, Threads.nthreads())
     p = tf(1, [0.1,1,0,0])
@@ -143,7 +145,7 @@ end
 #     p = plot(layout=(2N+1,2N+1))
 #     w = [10.0^t for t in range(-2.0,2.0,10000)]
 #     for (m,n) in collect(Iterators.product(-N:N,-N:N))
-#         r = frSN(N,m,n,w)
+#         r = frSN(N,(m,n),(N+1,N+1),w)
 #         plot!(w,abs.(r);
 #               subplot=(N+m)*(2N+1)+N+n+1,
 #               legend=false,
@@ -155,17 +157,17 @@ end
 #     return p
 # end
 
-# "plots all node responses from w00"
-# function pltSimF00(N::Int64)
-#     tend = 200.0
-#     p = plot(layout=(2N+1,2N+1))
-#     for (m,n) in collect(Iterators.product(-N:N,-N:N))
-#         t,v = simF00(N,m,n,tend) # a version of simF() that does not sum over (m,n)
-#         plot!(t,v, subplot=(N+m)*(2N+1)+N+n+1, legend=false)
-#         display(p)
-#     end
-#     return p
-# end
+"plots all node responses from w00"
+function pltSimF00(N::Int64)
+    tend = 81.92
+    p = plot(layout=(2N+1,2N+1))
+    for (k,l) in collect(Iterators.product(1:2N+1,1:2N+1))
+        t,v = simF00(N,k,l,tend) # a version of simF() that does not sum over (m,n)
+        plot!(t,v, subplot=(k-1)*(2N+1)+l, legend=false)
+        display(p)
+    end
+    return p
+end
 
 # "plots edge nodes far from origin"
 # function pltSimF(N::Int64)
@@ -181,22 +183,22 @@ end
 #     return p
 # end
 
-# "simulates freq->time response from (m,n) to (0,0)"
-# function simF00(N::Int64, m::Int64, n::Int64, tend::Float64=50.0)
-#     nt = 2^23
-#     nt2 = div(nt,2)
-#     tpad = 1000*tend
-#     dt = tpad/nt
-#     dw = 2π/tpad
-#     t = dt*(0:nt-1)
-#     w = dw*(-nt2:nt2-1)
-#     vhat = frSN(N,m,n,w)
-#     u = vcat(randn(Xoshiro(1),nt2), zeros(nt2))
-#     uw = fft(u)
-#     v = real(ifft(fftshift(vhat).*uw))
-#     it = floor(Int, tend/dt)
-#     return t[1:it], v[1:it]
-# end
+"simulates freq->time response from (m,n) to (0,0)"
+function simF00(N::Int64, k::Int64, l::Int64, tend::Float64=50.0)
+    nt = 2^23
+    nt2 = div(nt,2)
+    tpad = 1024*tend
+    dt = tpad/nt
+    dw = 2π/tpad
+    t = dt*(0:nt-1)
+    w = dw*(-nt2:nt2-1)
+    vhat = frSN(N,(k,l),(N+1,N+1),w)
+    u = vcat(randn(nt2), zeros(nt2))
+    uw = fft(u)
+    v = real(ifft(fftshift(vhat).*uw))
+    it = floor(Int, tend/dt)
+    return t[1:it], v[1:it]
+end
 
 # function simFaux1D(N::Int64, tend::Float64=50.0)
 #     nt = 2^23
