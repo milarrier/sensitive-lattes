@@ -3,40 +3,6 @@ using ControlSystems
 using FFTW
 using Plots
 
-"uses frSN() only on the upper tri of a quarandt to calculate v(center)"
-function simFred(N::Int64, tend::Float64=50.0)
-    nt = 2^23
-    nt2 = div(nt,2)
-    tpad = 1024*tend
-    dt = tpad/nt
-    dw = 2π/tpad
-    t = dt*(0:nt-1)
-    w = dw*(-nt2:nt2-1)
-    v00 = zeros(nt)
-    for m = 0:N
-        for n = m:N
-            vhat = frSN(N,(m,n),(N+1,N+1),w)
-            if m==0 || m==n
-                if n==0
-                    nu = 1
-                else
-                    nu = 4
-                end
-            else
-                nu = 8
-            end
-            for iu = 1:nu
-                u = vcat(randn(nt2), zeros(nt2))
-                uw = fft(u)
-                v = real(ifft(fftshift(vhat).*uw))
-                v00 += v
-            end
-        end
-    end
-    it = floor(Int, tend/dt)
-    return t[1:it], v00[1:it]
-end
-
 "simulates in freq domain then converts to time domain"
 function simF(N::Int64, tend::Float64=50.0)
     nt = 2^23
@@ -49,7 +15,7 @@ function simF(N::Int64, tend::Float64=50.0)
     v00 = zeros(nt)
     u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
     uw = fft(u)
-    for (k,l) in collect(Iterators.product(1:1,1:2N+1))
+    for (k,l) in collect(Iterators.product(1:2N+1,1:2N+1))
         vhat = frSN(N,(k,l),(N+1,N+1),w)
         # u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
         # uw = fft(u)
@@ -99,7 +65,7 @@ end
 # end
 
 # ufn(t) = sin.(10t)
-# ufn(t) = sin.(t)
+ufn(t) = sin.(t)
 
 # "finite sensitivity function in state-space form for lsim accuracy"
 # function SN(N::Int64)
@@ -140,22 +106,25 @@ end
 #     return p
 # end
 
-# "plots frequency response of all nodes to w00"
-# function pltFRSN(N::Int64)
-#     p = plot(layout=(2N+1,2N+1))
-#     w = [10.0^t for t in range(-2.0,2.0,10000)]
-#     for (m,n) in collect(Iterators.product(-N:N,-N:N))
-#         r = frSN(N,(m,n),(N+1,N+1),w)
-#         plot!(w,abs.(r);
-#               subplot=(N+m)*(2N+1)+N+n+1,
-#               legend=false,
-#               # xlims=(1e-2,1e0),
-#               # ylims=(-1e-2,0.25),
-#               xscale=:log10)
-#         display(p)
-#     end
-#     return p
-# end
+"plots frequency response of all nodes to w00"
+function pltFRSN(N::Int64)
+    p = plot()
+    w = [10.0^t for t in range(-2.0,2.0,10000)]
+    for k = 1:N+1
+        for l = k:N+1
+            r = frSN(N,(k,l),(N+1,N+1),w)
+            plot!(w,abs.(r);
+                  palette=palette(:Blues, rev=true),
+                  # xlims=(1e-2,1e0),
+                  # ylims=(0.05,0.15),
+                  xscale=:log10,
+                  yscale=:log10,
+                  label=string((k,l)))
+            display(p)
+        end
+    end
+    return p
+end
 
 "plots all node responses from w00"
 function pltSimF00(N::Int64)
@@ -183,7 +152,7 @@ end
 #     return p
 # end
 
-"simulates freq->time response from (m,n) to (0,0)"
+"simulates freq->time response from (k,l) to (N+1,N+1)"
 function simF00(N::Int64, k::Int64, l::Int64, tend::Float64=50.0)
     nt = 2^23
     nt2 = div(nt,2)
@@ -193,7 +162,7 @@ function simF00(N::Int64, k::Int64, l::Int64, tend::Float64=50.0)
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1)
     vhat = frSN(N,(k,l),(N+1,N+1),w)
-    u = vcat(randn(nt2), zeros(nt2))
+    u = vcat(ufn(t[1:nt2]), zeros(nt2))
     uw = fft(u)
     v = real(ifft(fftshift(vhat).*uw))
     it = floor(Int, tend/dt)
@@ -294,4 +263,38 @@ end
 #             display(h)
 #         end
 #     end
+# end
+
+# "uses frSN() only on the upper tri of a quarandt to calculate v(center)"
+# function simFred(N::Int64, tend::Float64=50.0)
+#     nt = 2^23
+#     nt2 = div(nt,2)
+#     tpad = 1024*tend
+#     dt = tpad/nt
+#     dw = 2π/tpad
+#     t = dt*(0:nt-1)
+#     w = dw*(-nt2:nt2-1)
+#     v00 = zeros(nt)
+#     for m = 0:N
+#         for n = m:N
+#             vhat = frSN(N,(m,n),(N+1,N+1),w)
+#             if m==0 || m==n
+#                 if n==0
+#                     nu = 1
+#                 else
+#                     nu = 4
+#                 end
+#             else
+#                 nu = 8
+#             end
+#             for iu = 1:nu
+#                 u = vcat(randn(nt2), zeros(nt2))
+#                 uw = fft(u)
+#                 v = real(ifft(fftshift(vhat).*uw))
+#                 v00 += v
+#             end
+#         end
+#     end
+#     it = floor(Int, tend/dt)
+#     return t[1:it], v00[1:it]
 # end
