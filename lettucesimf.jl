@@ -111,15 +111,17 @@ function pltFRSN(N::Int64)
     p = plot()
     w = [10.0^t for t in range(-2.0,2.0,10000)]
     for k = 1:N+1
-        for l = k:N+1
+        for l = k
             r = frSN(N,(k,l),(N+1,N+1),w)
             plot!(w,abs.(r);
-                  palette=palette(:Blues, rev=true),
+                  # palette=palette(:linear_blue_95_50_c20_n256, rev=true),
+                  color=:steelblue,
                   # xlims=(1e-2,1e0),
-                  # ylims=(0.05,0.15),
+                  ylims=(1e-6,2),
                   xscale=:log10,
                   yscale=:log10,
-                  label=string((k,l)))
+                  legend=false)#:bottomleft,
+                  # label=string((k,l)))
             display(p)
         end
     end
