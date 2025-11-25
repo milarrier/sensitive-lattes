@@ -64,13 +64,13 @@ end
 #     return p
 # end
 
-function randp(nt)
-    u = zeros(nt)
-    for i = 1:nt
-        u[i] = randn(Xoshiro(i))
-    end
-    return u
-end
+# function randp(nt)
+#     u = zeros(nt)
+#     for i = 1:nt
+#         u[i] = randn(Xoshiro(i))
+#     end
+#     return u
+# end
 # randp(nt) = randn(Xoshiro(1),nt)
 # some batch size shit prevents me from getting the same first n1 elements
 # when comparing randp(n1) and randp(n2) for n1<n2
@@ -108,22 +108,44 @@ end
 #     return out.y[1,:]
 # end
 
-# "plots frequency response of all nodes to w00"
-# function pltFRSNeulet(N::Int64)
-#     p = plot(layout=(N,N))
+# "a bunch of freq response curves for varying N"
+# function pltFRSNeulet(Ns::Vector{Int64})
+#     p = plot()
 #     w = [10.0^t for t in range(-2.0,2.0,10000)]
-#     for (m,n) in collect(Iterators.product(1:N,1:N))
-#         r = frSNeulet(N,(1,1),(m,n),w)
-#         plot!(w,abs.(r);
-#               subplot=N*(n-1)+m,
-#               legend=false,
-#               # xlims=(1e-2,1e0),
-#               # ylims=(-1e-2,0.25),
-#               xscale=:log10)
+#     for N in Ns
+#         k = div(N+1,2)
+#         vhat = frSNeulet(N,(k,k),(k,k),w)
+#         plot!(w, abs.(vhat);
+#               palette=:Blues,
+#               xlims=(1e-2,1e2),
+#               # ylims=(1e-5,1e1),
+#               yscale=:log10,
+#               xscale=:log10,
+#               label="N="*string(N))
 #         display(p)
 #     end
 #     return p
 # end
+
+"plots frequency response of all nodes to w00"
+function pltFRSNeuletkk(N::Int64)
+    p = plot()
+    w = [10.0^t for t in range(-2.0,2.0,10000)]
+    k = div(N+1,2)
+    for l = 1:k
+        r = frSNeulet(N,(l,l),(k,k),w)
+        plot!(w,abs.(r);
+              color=:steelblue,
+              # subplot=N*(n-1)+m,
+              legend=false,
+              # xlims=(1e-2,1e0),
+              ylims=(1e-10,2),
+              xscale=:log10,
+              yscale=:log10)
+        display(p)
+    end
+    return p
+end
 
 # "from noise on center row to south point"
 # function simNeuletFaux1D(N::Int64, tend::Float64=50.0)
@@ -132,7 +154,7 @@ end
 #     end
 #     nt = 2^23
 #     nt2 = div(nt,2)
-#     tpad = 1000*tend
+#     tpad = 1024*tend
 #     dt = tpad/nt
 #     dw = 2π/tpad
 #     t = dt*(0:nt-1)
