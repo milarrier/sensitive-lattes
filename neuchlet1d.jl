@@ -50,3 +50,42 @@ function frSNeulet1D(N::Int64, k::Int64, m::Int64, w)
     # iw0 = findall(iszero, w) # at zero frequency it's simply zero in this case
     r = 4r/(2N+1)
 end
+
+#=============================== SANITY CHECKS ================================#
+"a bunch of freq response curves for varying N"
+function pltFRSNeulet1D(Ns::Vector{Int64})
+    p = plot()
+    w = [10.0^t for t in range(-2.0,2.0,10000)]
+    for N in Ns
+        k = div(N+1,2)
+        vhat = frSNeulet1D(N,k,k,w)
+        plot!(w, abs.(vhat);
+              palette=:Blues,
+              xlims=(1e-2,1e2),
+              # ylims=(1e-5,1e1),
+              yscale=:log10,
+              xscale=:log10,
+              label="N="*string(N))
+        display(p)
+    end
+    return p
+end
+
+"plots frequency response of all nodes to w0"
+function pltFRSNeulet1kk(N::Int64)
+    p = plot()
+    w = [10.0^t for t in range(-2.0,2.0,10000)]
+    k = div(N+1,2)
+    for l = 1:k
+        r = frSNeulet1D(N,l,k,w)
+        plot!(w,abs.(r);
+              color=:steelblue,
+              legend=false,
+              # xlims=(1e-2,1e0),
+              ylims=(1e-10,2),
+              xscale=:log10,
+              yscale=:log10)
+        display(p)
+    end
+    return p
+end
