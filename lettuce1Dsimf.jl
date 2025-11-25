@@ -44,40 +44,42 @@ function frSN1D(N::Int64, k::Int64, m::Int64, w)
 end
 
 #=============================== SANITY CHECKS ================================#
-"a bunch of freq response curves from w(N+1) to v(N+1) for varying N"
-function pltFRSN1D(Ns::Vector{Int64})
-    p = plot()
-    w = [10.0^t for t in range(-2.0,2.0,10000)]
-    for N in Ns
-        r = frSN1D(N,N+1,N+1,w)
-        plot!(w, abs.(r);
-              palette=palette(:Blues),
-              xlims=(1e-2,1e2),
-              # ylims=(1e-5,1e1),
-              # yscale=:log10,
-              xscale=:log10,
-              label="N="*string(N))
-        display(p)
-    end
-    return p
-end
-
-# "verifies lo-fi peaks at the same location for varying disturbance locations"
-# function pltFR1Dl(N::Int64)
-#     p = plot(layout=(2,1))
+# "a bunch of freq response curves from w(N+1) to v(N+1) for varying N"
+# function pltFRSN1D(Ns::Vector{Int64})
+#     p = plot()
 #     w = [10.0^t for t in range(-2.0,2.0,10000)]
-#     for l = N-2:N
-#         r = frSN1D(N,l,N+1,w)
-#         plot!(w,abs.(r);
-#               subplot=1,
-#               xlims=(1e-2,1e0),
-#               ylims=(-1e-2,0.25),
-#               # label="l="*string(l),
-#               legend=false)
+#     for N in Ns
+#         r = frSN1D(N,N+1,N+1,w)
+#         plot!(w, abs.(r);
+#               palette=palette(:Blues),
+#               xlims=(1e-2,1e2),
+#               # ylims=(1e-5,1e1),
+#               # yscale=:log10,
+#               xscale=:log10,
+#               label="N="*string(N))
 #         display(p)
 #     end
 #     return p
 # end
+
+"verifies lo-fi peaks at the same location for varying disturbance locations"
+function pltFR1Dl(N::Int64)
+    p = plot()
+    w = [10.0^t for t in range(-2.0,2.0,10000)]
+    for l = 1:N+1
+        r = frSN1D(N,l,N+1,w)
+        plot!(w,abs.(r);
+              color=:steelblue,
+              # xlims=(1e-2,1e2),
+              ylims=(1e-10,2),
+              # label="l="*string(l),
+              legend=false,
+              xscale=:log10,
+              yscale=:log10)
+        display(p)
+    end
+    return p
+end
 
 # "simulates freq->time response from w(N+l+1) to v(N+1)"
 # function simF0(N::Int64)
@@ -85,7 +87,7 @@ end
 #     tend = 50.0
 #     nt = 2^23
 #     nt2 = div(nt,2)
-#     tpad = 1000*tend
+#     tpad = 1024*tend
 #     dt = tpad/nt
 #     dw = 2π/tpad
 #     t = dt*(0:nt-1)
