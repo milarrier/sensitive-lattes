@@ -15,21 +15,31 @@ function simNeuletF1D(N::Int64, tend::Float64=81.92)
     it = floor(Int, tend/dt)
     v00 = zeros(nt)
     # for m in 1:N
-    m = ceil(Int,N/2)
+        m = div(N+1,2)
+        u = vcat(randl(t[1:nt2]), zeros(nt2))
+        uw = fft(u)
         vhat = frSNeulet1D(N,m,N,w)
-        uw = fft(vcat(randp(N,nt2), zeros(nt2)))
         v = real(ifft(fftshift(vhat).*uw))
         v00 += v
     # end
-    return t[1:it], v00[1:it]
+    return t[1:it], v00[1:it]#, u[1:it]
 end
 
-function randp(N,nt)
-    u = zeros(nt)
-    for i = 1:nt
-        u[i] = sol.W[i][ceil(Int,N/2)]
-    end
-    return u
+# function randp(N,nt)
+#     u = zeros(nt)
+#     for i = 1:nt
+#         u[i] = sol.W[i][ceil(Int,N/2)]
+#     end
+#     return u
+# end
+
+"random noise passed through an LPF"
+function randl(t)
+    nt = length(t)
+    u = randn(nt)
+    s = tf("s")
+    out = lsim(1/(10s+1), u', t)
+    return out.y[1,:]
 end
 
 "frequency response from k to m obtained node-wise and then summed up"
