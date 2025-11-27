@@ -13,16 +13,20 @@ function simNeuletF1D(N::Int64, tend::Float64=81.92)
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1)
     it = floor(Int, tend/dt)
-    v00 = zeros(nt)
-    # for m in 1:N
-        m = div(N+1,2)
-        u = vcat(randl(t[1:nt2]), zeros(nt2))
-        uw = fft(u)
-        vhat = frSNeulet1D(N,m,N,w)
+    # v00 = zeros(nt)
+    u = vcat(randn(nt2), zeros(nt2))
+    uw = fft(u)
+    m = div(N+1,2)
+    ks = [1,m]
+    p = plot(layout=(length(ks),1))
+    for k in 1:length(ks)
+        vhat = frSNeulet1D(N,ks[k],m,w)
         v = real(ifft(fftshift(vhat).*uw))
-        v00 += v
-    # end
-    return t[1:it], v00[1:it]#, u[1:it]
+        plot!(t[1:it],v[1:it]; subplot=k, label=false)
+        display(p)
+        # v00 += v
+    end
+    return p#t[1:it], v00[1:it]#, u[1:it]
 end
 
 # function randp(N,nt)
@@ -38,7 +42,7 @@ function randl(t)
     nt = length(t)
     u = randn(nt)
     s = tf("s")
-    out = lsim(1/(10s+1), u', t)
+    out = lsim(1/s, u', t)
     return out.y[1,:]
 end
 
