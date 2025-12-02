@@ -14,7 +14,7 @@ function simNeuletF1D(N::Int64, tend::Float64=81.92)
     w = dw*(-nt2:nt2-1)
     it = floor(Int, tend/dt)
     # v00 = zeros(nt)
-    u = vcat(randn(nt2), zeros(nt2))
+    u = vcat(ufn(t[1:nt2]), zeros(nt2))
     uw = fft(u)
     m = div(N+1,2)
     ks = [1,m]
@@ -22,28 +22,11 @@ function simNeuletF1D(N::Int64, tend::Float64=81.92)
     for k in 1:length(ks)
         vhat = frSNeulet1D(N,ks[k],m,w)
         v = real(ifft(fftshift(vhat).*uw))
-        plot!(t[1:it],v[1:it]; subplot=k, label=false)
+        plot!(t[1:it],v[1:it]; c=:steelblue, subplot=k, label=false)
         display(p)
         # v00 += v
     end
     return p#t[1:it], v00[1:it]#, u[1:it]
-end
-
-# function randp(N,nt)
-#     u = zeros(nt)
-#     for i = 1:nt
-#         u[i] = sol.W[i][ceil(Int,N/2)]
-#     end
-#     return u
-# end
-
-"random noise passed through an LPF"
-function randl(t)
-    nt = length(t)
-    u = randn(nt)
-    s = tf("s")
-    out = lsim(1/s, u', t)
-    return out.y[1,:]
 end
 
 "frequency response from k to m obtained node-wise and then summed up"
@@ -64,6 +47,25 @@ function frSNeulet1D(N::Int64, k::Int64, m::Int64, w)
     # iw0 = findall(iszero, w) # at zero frequency it's simply zero in this case
     r = 4r/(2N+1)
 end
+
+ufn(t) = sin.(0.1382t)
+
+# "random noise passed through an LPF"
+# function randl(t)
+#     nt = length(t)
+#     u = randn(nt)
+#     s = tf("s")
+#     out = lsim(1/s, u', t)
+#     return out.y[1,:]
+# end
+
+# function randp(N,nt)
+#     u = zeros(nt)
+#     for i = 1:nt
+#         u[i] = sol.W[i][ceil(Int,N/2)]
+#     end
+#     return u
+# end
 
 #=============================== SANITY CHECKS ================================#
 "a bunch of freq response curves for varying N"
@@ -89,9 +91,9 @@ end
 function pltFRSNeulet1kk(N::Int64)
     p = plot()
     w = [10.0^t for t in range(-2.0,2.0,10000)]
-    k = div(N+1,2)
-    for l = 1:k
-        r = frSNeulet1D(N,l,k,w)
+    m = div(N+1,2)
+    for k = 1:m
+        r = frSNeulet1D(N,k,m,w)
         plot!(w,abs.(r);
               color=:steelblue,
               legend=false,
