@@ -74,55 +74,6 @@ function rhsCLotus!(dZ, Z, p, t, W)
     dZ[end,1,:,:] = dΞ
 end
 
-function simstring(N)
-    C = [1 0 0]
-    n = size(C,2)
-    Z0 = reshape(transpose([collect(N-1:-1:0) zeros(N,n)]), n+1, 1, N)
-    L = -lapstr(N)
-    tspan = (0.0,41943.04)
-    prob = RODEProblem(rhstring, Z0, tspan, L; rand_prototype = zeros(N), save_noise=true)
-    sol = solve(prob, RandomEM(), dt = 1 / 100)
-    nt = length(sol.t)
-    V = [Array{Float64,3}(undef,1,1,N) for _ = 1:nt]
-    for t in 1:nt
-        X = sol.u[t][1:n,:,:]
-        @tullio V[t][i,k,l] = C[i,j] * X[j,k,l]
-    end
-    VV = Array{Float64,2}(undef, nt, N)
-    for t in 1:nt
-        VV[t,:] = hvcat(N, V[t]...)
-    end
-    # plot(sol.t, VV; palette = palette(:Blues, rev=true), legend = false)
-    return sol, VV
-end
-
-function rhstring(dZ, Z, L, t, W)
-    a = 0.1
-    A = [0 1 0; 0 0 1; 0 0 -1/a]
-    B = reshape([0 0 1/a], size(A,1), 1)
-    C = [1 0 0]
-    Ak = -20
-    Bk = 1
-    Ck = -780
-    Dk = 40
-    N = size(Z,3)
-    n = size(A,1)
-    Vr = collect(N-1:-1:0)
-    maskW = zeros(N)
-    maskW[ceil(Int,N/2)] = 1
-    X = Z[1:n,:,:] # nx1xN
-    Ξ = Z[end,1,:] # Nx1
-    @tullio V[i,k,l] := C[i,j] * X[j,k,l] # 1x1xN = 1xn * nx1xN
-    dV = [V...] + 0.01*W .* maskW # Nx1
-    J = Ck*Ξ + Dk*dV # Nx1
-    U = reshape(L*(J-Vr), 1,1,N) # Nx1 -> 1x1xN
-    @tullio dX[i,k,l] := A[i,j] * X[j,k,l] # nx1xN = nxn * nx1xN
-    @tullio dX[i,k,l] += B[i,j] * U[j,k,l] # nx1xN = nx1 * 1x1xN
-    dΞ = Ak*Ξ + Bk*dV
-    dZ[1:n,:,:] = dX
-    dZ[end,1,:] = dΞ
-end
-
 # function simcaravg(N)
 #     C = [1. 0. 0.]
 #     nx = size(C,2)
@@ -175,13 +126,6 @@ function laplettuce(N)
     row1[end] = 1.0
     U = Toeplitz(col1, row1)
     L = U + U' - 2I
-end
-
-function lapstr(N)
-    d = vec(2*ones(N,1))
-    d[1] = 1
-    dl = vec(-1*ones(N-1,1))
-    L = Tridiagonal(dl, d, dl)
 end
 
 # Array{Array{}} as state variable not supported by DifferentialEquations
