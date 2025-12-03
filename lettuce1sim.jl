@@ -7,7 +7,8 @@ using Plots
 function simstring(N)
     C = [1 0 0]
     n = size(C,2)
-    Z0 = reshape(transpose([collect(N-1:-1:0) zeros(N,n)]), n+1, 1, N)
+    # Z0 = reshape(transpose([collect(N-1:-1:0) zeros(N,n)]), n+1, 1, N)
+    Z0 = fill(0.0,(n+1,1,N))
     tspan = (0.0,300.0)
 
     # prob = RODEProblem(rhstringr, Z0, tspan; rand_prototype = zeros(N))
@@ -42,9 +43,9 @@ function rhstring(dZ, Z, W, t)
     N = size(Z,3)
     n = size(A,1)
     L = -lapstr(N)
-    Vr = collect(N-1:-1:0)
+    # Vr = collect(N-1:-1:0)
     maskW = zeros(N)
-    maskW[1] = 1
+    maskW[ceil(Int,N/2)] = 1
     
     X = Z[1:n,:,:] # nx1xN
     Ξ = Z[end,1,:] # Nx1
@@ -52,7 +53,8 @@ function rhstring(dZ, Z, W, t)
     # dV = [V...] + 0.01W .* maskW # random input Nx1
     dV = [V...] + W(t) .* maskW # deterministic input Nx1
     J = Ck*Ξ + Dk*dV # Nx1
-    U = reshape(L*(J-Vr), 1,1,N) # Nx1 -> 1x1xN
+    # U = reshape(L*(J-Vr), 1,1,N) # Nx1 -> 1x1xN
+    U = reshape(L*J, 1,1,N)
     @tullio dX[i,k,l] := A[i,j] * X[j,k,l] # nx1xN = nxn * nx1xN
     @tullio dX[i,k,l] += B[i,j] * U[j,k,l] # nx1xN = nx1 * 1x1xN
     dΞ = Ak*Ξ + Bk*dV
