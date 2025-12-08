@@ -172,13 +172,13 @@ end
 #     return t[1:it], v00[1:it]
 # end
 
-# "eigs of Laplacian with mixed Dirichlet Neumann BCs"
-# function eggNeulet(N::Int64)
-#     θ = [(2k+1)π/(2N+1) for k in 0:N-1]
-#     eggs = 4sin.(θ/2).^2
-#     eggvec = 2/sqrt(2N+1)*reshape(vcat([sin.(j*θ) for j in 1:N]...),(N,N))'
-#     return eggs, eggvec
-# end
+"eigs of Laplacian with mixed Dirichlet Neumann BCs"
+function eggNeulet(N::Int64)
+    θ = [(2k+1)π/(2N+1) for k in 0:N-1]
+    eggs = 4sin.(θ/2).^2
+    eggvec = 2/sqrt(2N+1)*reshape(vcat([sin.(j*θ) for j in 1:N]...),(N,N))'
+    return eggs, eggvec
+end
 
 "Laplacian with mixed Dirichlet Neumann BCs with my sign convention"
 function lapNeulet(N::Int64)
