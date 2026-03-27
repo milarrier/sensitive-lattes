@@ -4,7 +4,7 @@ using NumericalIntegration
 using Plots
 
 #=====FAST (FOURIER + DIRECT NORM) AND QUITE RELIABLE (THOUGH ISZERO()?)=====#
-function pltvar2(Ns,numex::Int=1)
+function pltvar(Ns,numex::Int=1)
     nN = length(Ns)
     var1 = zeros(nN)
     varn = zeros(nN)
@@ -49,9 +49,8 @@ function varSerrFour(N::Int, h::Int, numex)
         else
             var[Threads.threadid()] += (abs(ϕkl)*norm(Skl))^2
         end
-        # omitted *2 because /sqrt(2d) anyway
     end
-    return sum(var)/(2N+1)^2
+    return sum(var)/(2N+1)^2/2 # factor 1/2=2/(sqrt(2d))^2
 end
 
 #=====LESS SLOW (FOURIER SINGLE DOUBLE SUM BUT INTEGRATE FREQRESP) AND QUITE RELIABLE=====#
@@ -64,8 +63,8 @@ function pltSbam(Ns)
         var1[i] = varSFbam(N,1)
         varn[i] = varSFbam(N,N)
     end
-    plot(Ns, var1/2; c=:steelblue) # 1/2 as in 1/sqrt(2d) where d=lattice dimension
-    plot!(Ns, varn/2; legend=false)
+    plot(Ns, var1/4; c=:steelblue) # 1/4 as in (1/sqrt(2d))^2 where d=lattice dimension
+    plot!(Ns, varn/4; legend=false)
 end
 
 "calculates variance via integrating freqresp() curves"
