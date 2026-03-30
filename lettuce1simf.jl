@@ -39,6 +39,7 @@ function frSN1D(N::Int64, k::Int64, m::Int64, w)
     Threads.@threads for i = 0:2N
         σi = sin(π*i/(2N+1))^2
         Si = omg^((k-m)*i)/(1+4g*σi)*p # w(k) -> v(m)
+        # beware the p factor for adjusting to Bamieh input disturbance
         r[:,Threads.threadid()] += dropdims(freqresp(Si,w); dims=(1,2))
     end
     return sum(r, dims=2)[:,1]/(2N+1)
