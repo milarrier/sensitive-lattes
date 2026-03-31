@@ -1,6 +1,7 @@
 using LinearAlgebra
 using ControlSystems
 using FFTW
+using NumericalIntegration
 using Plots
 
 "simulates in freq domain then converts to time domain"
@@ -13,15 +14,16 @@ function simF(N::Int64, tend::Float64=50.0)
     t = dt*(0:nt-1)
     w = dw*(-nt2:nt2-1) # w = (-π/dt):dw:(π/dt-dw) # length(w) != length(t) ???
     v00 = zeros(nt)
-    u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
+    u = vcat(sin.(0.1t[1:nt2]), zeros(nt2))
     uw = fft(u)
-    for (k,l) in collect(Iterators.product(1:2N+1,1:2N+1))
+    (k,l) = (N+1,N+1)
+    # for (k,l) in collect(Iterators.product(1:2N+1,1:2N+1))
         vhat = frSN(N,(k,l),(N+1,N+1),w)
-        # u = vcat(randn(nt2), zeros(nt2)) # vcat(ufn(t[1:nt2]), zeros(nt2))
+        # u = vcat(randn(nt2), zeros(nt2))
         # uw = fft(u)
         v = real(ifft(fftshift(vhat).*uw))
         v00 += v
-    end
+    # end
     it = floor(Int, tend/dt)
     # plot(t[1:it],v[1:it]) # plot rendering is so slow for the size of 2^23
     return t[1:it], v00[1:it] #, u[1:it]
@@ -35,18 +37,19 @@ function frSN(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64}, w)
     c = tf([2,1], [0.05,1])
     # p = tf(1, [1,1])
     # c = tf(1, [1,0])
+    # p = tf(1, [1,0])
+    # c = 1
     g = p*c
     omg = exp(-im*2π/(2N+1))
     Threads.@threads for (i,j) in collect(Iterators.product(0:2N,0:2N))
         σij = sin(π*i/(2N+1))^2+sin(π*j/(2N+1))^2
-        Sij = omg^(-(m-k)*i+(n-l)*j)/(1+4g*σij)
+        Sij = omg^(-(m-k)*i+(n-l)*j)/(1+4g*σij) # *p for input disturbance
         r[:,Threads.threadid()] += dropdims(freqresp(Sij,w); dims=(1,2))
-        # @show (j,k)
     end
-    r = sum(r, dims=2)
+    r = dropdims(sum(r, dims=2), dims=2)
     iw0 = findall(iszero, w) # need to handle zero frequency separately with this g
     if !isempty(iw0)
-        r[iw0[1]] = 1 # for s=0 only S00=1/1 survives the rest are 0/(0+c)
+        r[iw0[1]] = 1 # for s=0 only S00=1/1 survives; the rest are 0/(0+c)
     end
     r = r/(2N+1)^2
 end
@@ -64,8 +67,7 @@ end
 #     return p
 # end
 
-# ufn(t) = sin.(10t)
-ufn(t) = sin.(t)
+# ufn(t) = sin.(0.1t)
 
 # "finite sensitivity function in state-space form for lsim accuracy"
 # function SN(N::Int64)
@@ -88,215 +90,71 @@ ufn(t) = sin.(t)
 #     return minreal(S)/(2N+1)^2
 # end
 
-# "a bunch of freq response curves for varying N"
-# function pltFR(Ns::Vector{Int64})
-#     p = plot()
-#     w = [10.0^t for t in range(-2.0,2.0,10000)]
-#     for N in Ns
-#         vhat = frSN(N,w)
-#         plot!(w, abs.(vhat);
-#               palette=palette(:Blues, rev=true),
-#               xlims=(1e-2,1e2),
-#               # ylims=(1e-5,1e1),
-#               yscale=:log10,
-#               xscale=:log10,
-#               label="N="*string(N))
-#         display(p)
-#     end
-#     return p
-# end
-
-"plots frequency response of all nodes to w00"
-function pltFRSN(N::Int64)
+"a bunch of freq response curves for varying N"
+function pltFR(Ns::Vector{Int64})
     p = plot()
     w = [10.0^t for t in range(-2.0,2.0,10000)]
-    for k = 1:N+1
-        for l = k
-            r = frSN(N,(k,l),(N+1,N+1),w)
-            plot!(w,abs.(r);
-                  # palette=palette(:linear_blue_95_50_c20_n256, rev=true),
-                  color=:steelblue,
-                  # xlims=(1e-2,1e0),
-                  ylims=(1e-6,2),
-                  xscale=:log10,
-                  yscale=:log10,
-                  legend=false)#:bottomleft,
-                  # label=string((k,l)))
-            display(p)
-        end
-    end
-    return p
-end
-
-"plots all node responses from w00"
-function pltSimF00(N::Int64)
-    tend = 81.92
-    p = plot(layout=(2N+1,2N+1))
-    for (k,l) in collect(Iterators.product(1:2N+1,1:2N+1))
-        t,v = simF00(N,k,l,tend) # a version of simF() that does not sum over (m,n)
-        plot!(t,v, subplot=(k-1)*(2N+1)+l, legend=false)
+    for N in Ns
+        r = frSN(N,(N+1,N+1), (N+1,N+1), w)
+        plot!(w, abs.(r);
+              palette=:Blues,
+              xlims=(1e-2,1e2),
+              # ylims=(1e-5,1e1),
+              yscale=:log10,
+              xscale=:log10,
+              label="N="*string(N))
         display(p)
     end
     return p
 end
 
-# "plots edge nodes far from origin"
-# function pltSimF(N::Int64)
-#     tend = 200.0
+# "plots frequency response of all nodes to w00"
+# function pltFRSN(N::Int64)
 #     p = plot()
-#     for n in [N,N-2,N-4]
-#         t,v = simF(N,0,n,tend)
-#         plot!(t,v;
-#               palette=palette(:Blues_7, rev=true),
-#               label="n="*string(n))
-#         display(p)
+#     w = [10.0^t for t in range(-2.0,2.0,10000)]
+#     for k = 1:N+1
+#         for l = k
+#             r = frSN(N,(k,l),(N+1,N+1),w)
+#             plot!(w,abs.(r);
+#                   color=:steelblue,
+#                   # xlims=(1e-2,1e0),
+#                   ylims=(1e-6,2),
+#                   xscale=:log10,
+#                   yscale=:log10,
+#                   legend=false)#:bottomleft,
+#                   # label=string((k,l)))
+#             display(p)
+#         end
 #     end
 #     return p
 # end
 
-"simulates freq->time response from (k,l) to (N+1,N+1)"
-function simF00(N::Int64, k::Int64, l::Int64, tend::Float64=50.0)
-    nt = 2^23
-    nt2 = div(nt,2)
-    tpad = 1024*tend
-    dt = tpad/nt
-    dw = 2π/tpad
-    t = dt*(0:nt-1)
-    w = dw*(-nt2:nt2-1)
-    vhat = frSN(N,(k,l),(N+1,N+1),w)
-    u = vcat(ufn(t[1:nt2]), zeros(nt2))
-    uw = fft(u)
-    v = real(ifft(fftshift(vhat).*uw))
-    it = floor(Int, tend/dt)
-    return t[1:it], v[1:it]
+"numerical integration to get h2 norm of bamieh consensus"
+function pltSbam(Ns)
+    nN = length(Ns)
+    varel = zeros(nN)
+    varbs = zeros(nN)
+    for i in 1:nN
+        N = Ns[i]
+        varel[i] = varSbam(N,1)
+        varbs[i] = varSbam(N,N)
+    end
+    plot(Ns, varel; c=:steelblue)
+    plot!(Ns, varbs; legend=false)
 end
 
-# function simFaux1D(N::Int64, tend::Float64=50.0)
-#     nt = 2^23
-#     nt2 = div(nt,2)
-#     tpad = 1000*tend
-#     dt = tpad/nt
-#     dw = 2π/tpad
-#     t = dt*(0:nt-1)
-#     w = dw*(-nt2:nt2-1)
-#     v00 = zeros(nt)
-#     u = vcat(randn(nt2), zeros(nt2))
-#     uw = fft(u)
-#     for n = 0:N
-#         vhat = frSN(N,0,n,w)
-#         if n==0
-#             nu = 1
-#         else
-#             nu = 2
-#         end
-#         # for iu = 1:nu
-#         #     u = vcat(randn(nt2), zeros(nt2))
-#         #     uw = fft(u)
-#         #     v = real(ifft(fftshift(vhat).*uw))
-#         #     v00 += v
-#         # end
-#         v = real(ifft(fftshift(vhat).*uw))
-#         v00 += nu.*v
-#     end
-#     it = floor(Int, tend/dt)
-#     return t[1:it], v00[1:it]
-# end
-
-# "threaded simF() doesn't help much and FFTW in loop seems to create lock conflicts"
-# function simFth(N::Int64, tend::Float64=50.0)
-#     nt = 2^23
-#     nt2 = div(nt,2)
-#     tpad = 1000*tend
-#     dt = tpad/nt
-#     dw = 2π/tpad
-#     t = dt*(0:nt-1)
-#     w = dw*(-nt2:nt2-1)
-#     it = floor(Int, tend/dt)
-#     v00 = zeros(it, Threads.nthreads())
-#     Threads.@threads for (m,n) in collect(Iterators.product(-N:N,-N:N))
-#         vhat = frSN(N,m,n,w)
-#         u = vcat(randn(nt2), zeros(nt2))
-#         uw = fft(u)
-#         v = real(ifft(fftshift(vhat).*uw))
-#         v00[:,Threads.threadid()] += v[1:it]
-#     end
-#     v00 = sum(v00, dims=2)
-#     return t[1:it], v00
-# end
-
-# "single thread version of frSN()"
-# function frSN1(N::Int64, m::Int64, n::Int64, w)
-#     nw = length(w)
-#     r = zeros(nw)
-#     p = tf(1, [0.1,1,0,0])
-#     c = tf([2,1], [0.05,1])
-#     # p = tf(1, [1,1])
-#     # c = tf(1, [1,0])
-#     g = p*c
-#     omg = exp(-im*2π/(2N+1))
-#     for (j,k) in collect(Iterators.product(0:2N,0:2N))
-#         σjk = sin(2π*j/(2N+1))^2+sin(2π*k/(2N+1))^2
-#         Sjk = omg^(-m*j+n*k)/(1+4g*σjk)
-#         r = r + dropdims(freqresp(Sjk,w); dims=(1,2))
-#     end
-#     iw0 = findall(iszero, w) # need to handle zero frequency separately
-#     if !isempty(iw0)
-#         r[iw0[1]] = 1 # for s=0 only S00=1/1 survives the rest are 0/(0+c)
-#     end
-#     r = r/(2N+1)^2 *omg^(m-n) # from (-m,-n) to (0,0) not sure it matters
-# end
-
-# function pltFrSjk(N)
-#     h = plot()
-#     w = [10.0^t for t in range(-2.0,2.0,10000)]
-#     p = tf(1, [1,1])
-#     c = tf(1, [1,0])
-#     g = p*c
-#     for j = 0:2N
-#         for k=2
-#             Sjk = 1/(1+4g-2g*(cos(2π*j/(2N+1))+cos(2π*k/(2N+1))))
-#             r = dropdims(freqresp(Sjk,w); dims=(1,2))
-#             plot!(w, abs.(r);
-#                   palette=reverse(cgrad(:Blues)),
-#                   xlims=(1e-2,1e2),
-#                   yscale=:log10,
-#                   xscale=:log10,
-#                   label="jk="*string(j,k))
-#             display(h)
-#         end
-#     end
-# end
-
-# "uses frSN() only on the upper tri of a quarandt to calculate v(center)"
-# function simFred(N::Int64, tend::Float64=50.0)
-#     nt = 2^23
-#     nt2 = div(nt,2)
-#     tpad = 1024*tend
-#     dt = tpad/nt
-#     dw = 2π/tpad
-#     t = dt*(0:nt-1)
-#     w = dw*(-nt2:nt2-1)
-#     v00 = zeros(nt)
-#     for m = 0:N
-#         for n = m:N
-#             vhat = frSN(N,(m,n),(N+1,N+1),w)
-#             if m==0 || m==n
-#                 if n==0
-#                     nu = 1
-#                 else
-#                     nu = 4
-#                 end
-#             else
-#                 nu = 8
-#             end
-#             for iu = 1:nu
-#                 u = vcat(randn(nt2), zeros(nt2))
-#                 uw = fft(u)
-#                 v = real(ifft(fftshift(vhat).*uw))
-#                 v00 += v
-#             end
-#         end
-#     end
-#     it = floor(Int, tend/dt)
-#     return t[1:it], v00[1:it]
-# end
+function varSbam(N::Int, n::Int)
+    m = N+1
+    var = 0
+    w = [10.0^t for t in range(-4.0,4.0,10000)]
+    for (k,l) in collect(Iterators.product(1:2N+1,1:2N+1))
+        r0 = frSN(N,(k,l),(m,m),w)
+        # why does the simplification produce smaller values?
+        # r1 = frSN(N,(k,l),(m-n,m),w)
+        # var += sqrt(integrate(w, (abs.(r0-r1)).^2)*2/π)
+        r10 = frSN(N,(k,l),(m-n,m),w)
+        r01 = frSN(N,(k,l),(m,m-n),w)
+        var += integrate(w, (abs.(r0-r10)).^2+(abs.(r0-r01)).^2)/π
+    end
+    return var
+end
