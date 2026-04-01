@@ -4,7 +4,7 @@ using FFTW
 using Plots
 
 "simulates in freq domain then converts to time domain"
-function simNeuletF1D(N::Int64, tend::Float64=81.92)
+function simNeuletF1(N::Int64, tend::Float64=81.92)
     nt = 2^23
     nt2 = div(nt,2)
     tpad = 1024*tend
@@ -14,23 +14,24 @@ function simNeuletF1D(N::Int64, tend::Float64=81.92)
     w = dw*(-nt2:nt2-1)
     it = floor(Int, tend/dt)
     # v00 = zeros(nt)
-    u = vcat(ufn(t[1:nt2]), zeros(nt2))
+    u = vcat(sin.(0.1382t[1:nt2]), zeros(nt2))
+    # u = vcat(rand(nt2), zeros(nt2))
     uw = fft(u)
     m = div(N+1,2)
     ks = [1,m]
     p = plot(layout=(length(ks),1))
-    for k in 1:length(ks)
-        vhat = frSNeulet1D(N,ks[k],m,w)
+    for k in 1:length(ks) #1:N
+        vhat = frSNeulet1(N,ks[k],m,w)
         v = real(ifft(fftshift(vhat).*uw))
         plot!(t[1:it],v[1:it]; c=:steelblue, subplot=k, label=false)
         display(p)
         # v00 += v
     end
-    return p#t[1:it], v00[1:it]#, u[1:it]
+    return p #t[1:it], v00[1:it]
 end
 
 "frequency response from k to m obtained node-wise and then summed up"
-function frSNeulet1D(N::Int64, k::Int64, m::Int64, w)
+function frSNeulet1(N::Int64, k::Int64, m::Int64, w)
     nw = length(w)
     r = zeros(ComplexF64, nw, Threads.nthreads())
     p = tf(1, [0.1,1,0,0])
@@ -44,37 +45,17 @@ function frSNeulet1D(N::Int64, k::Int64, m::Int64, w)
         r[:,Threads.threadid()] += dropdims(freqresp(Si,w); dims=(1,2))
     end
     r = sum(r, dims=2)
-    # iw0 = findall(iszero, w) # at zero frequency it's simply zero in this case
     r = 4r/(2N+1)
 end
 
-ufn(t) = sin.(0.1382t)
-
-# "random noise passed through an LPF"
-# function randl(t)
-#     nt = length(t)
-#     u = randn(nt)
-#     s = tf("s")
-#     out = lsim(1/s, u', t)
-#     return out.y[1,:]
-# end
-
-# function randp(N,nt)
-#     u = zeros(nt)
-#     for i = 1:nt
-#         u[i] = sol.W[i][ceil(Int,N/2)]
-#     end
-#     return u
-# end
-
 #=============================== SANITY CHECKS ================================#
 "a bunch of freq response curves for varying N"
-function pltFRSNeulet1D(Ns::Vector{Int64})
+function pltFRSNeulet1(Ns::Vector{Int64})
     p = plot()
     w = [10.0^t for t in range(-2.0,2.0,10000)]
     for N in Ns
         k = div(N+1,2)
-        vhat = frSNeulet1D(N,k,k,w)
+        vhat = frSNeulet1(N,k,k,w)
         plot!(w, abs.(vhat);
               palette=:Blues,
               xlims=(1e-2,1e2),
@@ -87,20 +68,20 @@ function pltFRSNeulet1D(Ns::Vector{Int64})
     return p
 end
 
-"plots frequency response of all nodes to w0"
+"plots frequency response from all k to m=0"
 function pltFRSNeulet1kk(N::Int64)
     p = plot()
     w = [10.0^t for t in range(-2.0,2.0,10000)]
     m = div(N+1,2)
     for k = 1:m
-        r = frSNeulet1D(N,k,m,w)
+        r = frSNeulet1(N,k,m,w)
         plot!(w,abs.(r);
-              color=:steelblue,
-              legend=false,
+              palette=:Blues,
+              label="k="*string(k),
               # xlims=(1e-2,1e0),
               ylims=(1e-10,2),
-              xscale=:log10,
-              yscale=:log10)
+              yscale=:log10,
+              xscale=:log10)
         display(p)
     end
     return p
