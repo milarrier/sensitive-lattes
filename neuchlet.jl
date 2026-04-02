@@ -42,7 +42,6 @@ function frSNeulet(N::Int64, (k,l)::Tuple{Int64,Int64}, (m,n)::Tuple{Int64,Int64
         r[:,Threads.threadid()] += dropdims(freqresp(Sij,w); dims=(1,2))
     end
     r = sum(r, dims=2)
-    # iw0 = findall(iszero, w) # at zero frequency it's simply zero in this case
     r = 16r/(2N+1)^2
 end
 

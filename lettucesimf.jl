@@ -67,8 +67,6 @@ end
 #     return p
 # end
 
-# ufn(t) = sin.(0.1t)
-
 # "finite sensitivity function in state-space form for lsim accuracy"
 # function SN(N::Int64)
 #     A = [0 1 0; 0 0 1; 0 0 -10]
