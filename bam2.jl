@@ -37,11 +37,10 @@ function varSerrFour(N::Int, h::Int, numex)
     else
         error("enter either 1 (consensus) or 2 (vehicle) svp")
     end
-    m = N+1
     omg = exp(-im*2π/(2N+1))
     var = zeros(Float64, Threads.nthreads())
     Threads.@threads for (k,l) in collect(Iterators.product(1:2N+1,1:2N+1))
-        ϕkl = omg^(m*(l-k))*(1-omg^(h*(k-1))) # separate the complex phase to enable norm()
+        ϕkl = 1-omg^(h*(k-1)) # separate the complex phase to enable norm()
         σkl = sin(π*(k-1)/(2N+1))^2+sin(π*(l-1)/(2N+1))^2
         Skl = minreal(p/(1+4g*σkl))
         if iszero(ϕkl) # avoid abs(0.0)*norm(1/s) = 0*Inf = NaN
@@ -87,8 +86,8 @@ end
 
 "(k,l) element of F'SF which removes double summation in each element of the S matrix"
 function SN2F(N::Int, (m,n)::Tuple{Int,Int}, (k,l)::Tuple{Int,Int})
-    p = tf(1, [1,0]) #tf(1, [1,0,0])
-    c = 1 # tf([1,1],[1])
+    p = tf(1, [1,0,0]) # tf(1, [1,0]) or tf(1, [1,0,0])
+    c = tf([1,1],[1]) # 1 or tf([1,1],[1])
     g = p*c
     omg = exp(-im*2π/(2N+1))
     σij = sin(π*(k-1)/(2N+1))^2+sin(π*(l-1)/(2N+1))^2
@@ -96,7 +95,7 @@ function SN2F(N::Int, (m,n)::Tuple{Int,Int}, (k,l)::Tuple{Int,Int})
     return Skl
 end
 
-#=====SLOW (DOUBLE DOUBLE SUM) AND UNRELIABLE (SMIN + MINEREAL)=====#
+#=====SLOW (DOUBLE DOUBLE SUM) AND UNRELIABLE (SMIN + MINEREAL)===#
 # "variance of 2d bamieh consensus"
 # function varSbam(N::Int, n::Int)
 #     m = N+1

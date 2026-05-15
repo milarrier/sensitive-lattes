@@ -4,12 +4,12 @@ using ControlSystems
 # using ToeplitzMatrices
 using Plots
 
-v0inf(g) = 1 / sqrt(4g+1)
+Sinf(g) = 1 / sqrt(4g+1)
 
 function plotv0inf()
     gre = -5000:0.3:3
     gim = -200:0.3:3
-    v = [v0inf(x + im*y) for y in gim, x in gre]
+    v = [Sinf(x + im*y) for y in gim, x in gre]
     contour(gre, gim, log.(abs.(v));
             c=reverse(cgrad(:ice)),
             # aspect_ratio=:equal,

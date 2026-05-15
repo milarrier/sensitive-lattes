@@ -32,13 +32,13 @@ function frSN1D(N::Int64, k::Int64, m::Int64, w)
     # c = tf([2,1], [0.05,1])
     # p = tf(1, [1,1])
     # c = tf(1, [1,0])
-    p = tf(1, [1,0])
-    c = 1
+    p = tf(1, [1,0,0])
+    c = c = tf([1,1],[1])
     g = p*c
     omg = exp(-im*2π/(2N+1))
     Threads.@threads for i = 0:2N
         σi = sin(π*i/(2N+1))^2
-        Si = omg^((k-m)*i)/(1+4g*σi)*p # w(k) -> v(m)
+        Si = omg^((k-m)*i)/(1+4g*σi) # w(k) -> v(m)
         # beware the p factor for adjusting to Bamieh input disturbance
         r[:,Threads.threadid()] += dropdims(freqresp(Si,w); dims=(1,2))
     end
@@ -70,6 +70,7 @@ end
 function pltFRSN1D(Ns::Vector{Int64})
     p = plot()
     w = [10.0^t for t in range(-2.0,2.0,10000)]
+    # r = [abs(Sinf(-(1+omg*im)/omg^2)) for omg in w] # overlay infinite "freqresp"
     for N in Ns
         r = frSN1D(N,N+1,N+1,w)
         plot!(w, abs.(r);

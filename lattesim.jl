@@ -145,7 +145,7 @@ function laplattica(N)
 end
 
 function proctrl(pc::Char, numex::Int=1)
-    if numex == 1
+    if numex == 1 # vehicle platoon
         if pc == 'p'
             A = [0 1 0; 0 0 1; 0 0 -10.0]
             B = reshape([0 0 10.0], size(A,1), 1)
@@ -159,6 +159,22 @@ function proctrl(pc::Char, numex::Int=1)
         else
             error("enter either 'p' or 'c' svp")
         end
+    elseif numex == 2 # power grid
+        if pc == 'p'
+            A = -1 # [-1;;] probably?
+            B = 1
+            C = 1
+            D = 0
+        elseif pc == 'c'
+            A = 0
+            B = 1
+            C = 1
+            D = 0
+        else
+            error("enter either 'p' or 'c' svp")
+        end
+    else
+        error("i've got only 2 examples")
     end
     return A,B,C,D
 end
