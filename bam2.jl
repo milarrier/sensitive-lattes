@@ -1,9 +1,9 @@
 using LinearAlgebra
-using ControlSystems
-using NumericalIntegration
+# using ControlSystems
+# using NumericalIntegration
 using Plots
 
-#=====FAST (FOURIER + DIRECT NORM) AND QUITE RELIABLE (THOUGH ISZERO()?)=====#
+#=====FAST (FOURIER + ANALYTICAL NORM) AND QUITE RELIABLE =====#
 function pltvar(Ns,numex::Int=1)
     nN = length(Ns)
     var1 = zeros(nN)
@@ -26,74 +26,86 @@ end
 
 "calculates variance via F' S_err F"
 function varSerrFour(N::Int, h::Int, numex)
-    if numex == 1 # consensus
-        p = tf(1, [1,0]) # 1/s
-        c = 1
-        g = p*c
-    elseif numex == 2 # vehicular formation
-        p = tf(1, [1,0,0]) # 1/s^2
-        c = tf([1,1],[1]) # 1+s
-        g = p*c
-    else
-        error("enter either 1 (consensus) or 2 (vehicle) svp")
-    end
     omg = exp(-im*2π/(2N+1))
     var = zeros(Float64, Threads.nthreads())
     Threads.@threads for (k,l) in collect(Iterators.product(1:2N+1,1:2N+1))
         ϕkl = 1-omg^(h*(k-1)) # separate the complex phase to enable norm()
         σkl = sin(π*(k-1)/(2N+1))^2+sin(π*(l-1)/(2N+1))^2
-        Skl = minreal(p/(1+4g*σkl))
+        # Skl = minreal(p/(1+4g*σkl))
         if iszero(ϕkl) # avoid abs(0.0)*norm(1/s) = 0*Inf = NaN
             continue
         else
-            var[Threads.threadid()] += (abs(ϕkl)*norm(Skl))^2
+            if numex == 1
+                var[Threads.threadid()] += abs2(ϕkl)/(8σkl)
+            elseif numex == 2
+                # var[Threads.threadid()] += abs2(ϕkl)*norm(Skl)^2
+                var[Threads.threadid()] += abs2(ϕkl)*varveSkl(σkl)
+            else
+                error("enter either 1 (consensus) or 2 (vehicle) svp")
+            end
         end
     end
     return sum(var)/(2N+1)^2/2 # factor 1/2=2/(sqrt(2d))^2
 end
 
+"calculates H2 norm^2 of double int Skl analytically"
+function varveSkl(σ)
+    # mathematica IntegrateSkl_doubleint.nb
+    b = 2σ-1
+    Delta = (σ-1)σ
+    if σ < 1
+        d = 2*sqrt(-Delta)
+        β = atan(d,b)
+        var = sin(β/2)/(32σ^2*sqrt(1-σ))
+        # var = im*(sqrt(b-2im*sqrt(-Delta))-sqrt(b+2im*sqrt(-Delta)))/(64σ^2*sqrt(1-σ))
+    else # σ cannot be 1 can it
+        var = (-sqrt(b-2*sqrt(Delta))+sqrt(b+2*sqrt(Delta))) / (64σ^2*sqrt(σ-1))
+    end
+    return var
+end
+
 #=====LESS SLOW (FOURIER SINGLE DOUBLE SUM BUT INTEGRATE FREQRESP) AND QUITE RELIABLE=====#
-function pltSbam(Ns)
-    nN = length(Ns)
-    var1 = zeros(nN)
-    varn = zeros(nN)
-    for i in 1:nN
-        N = Ns[i]
-        var1[i] = varSFbam(N,1)
-        varn[i] = varSFbam(N,N)
-    end
-    plot(Ns, var1/4; c=:steelblue) # 1/4 as in (1/sqrt(2d))^2 where d=lattice dimension
-    plot!(Ns, varn/4; legend=false)
-end
+# function pltSbam(Ns)
+#     nN = length(Ns)
+#     var1 = zeros(nN)
+#     varn = zeros(nN)
+#     for i in 1:nN
+#         N = Ns[i]
+#         var1[i] = varSFbam(N,1)
+#         varn[i] = varSFbam(N,N)
+#     end
+#     plot(Ns, var1/4; c=:steelblue) # 1/4 as in (1/sqrt(2d))^2 where d=lattice dimension
+#     plot!(Ns, varn/4; legend=false)
+# end
 
-"calculates variance via integrating freqresp() curves"
-function varSFbam(N::Int, h::Int)
-    m = N+1
-    var = zeros(Float64, Threads.nthreads())
-    w = [10.0^t for t in range(-4.0,4.0,10000)]
-    Threads.@threads for (k,l) in collect(Iterators.product(1:2N+1,1:2N+1))
-        S0 = SN2F(N,(m,m),(k,l))
-        Sn0 = SN2F(N,(m-h,m),(k,l))
-        # S0n = SN2F(N,(m,m-h),(k,l))
-        # var += norm([Smin(S0,Sn0); Smin(S0,S0n)])^2
-        # norm() can't handle complex coeffs though
-        r0 = dropdims(freqresp(S0,w); dims=(1,2))
-        rn0 = dropdims(freqresp(Sn0,w); dims=(1,2))
-        var[Threads.threadid()] += integrate(w, (abs.(r0-rn0)).^2)*2/π
-    end
-    return sum(var)/(2N+1)^2
-end
+# "calculates variance via integrating freqresp() curves"
+# function varSFbam(N::Int, h::Int)
+#     m = N+1
+#     var = zeros(Float64, Threads.nthreads())
+#     w = [10.0^t for t in range(-4.0,4.0,10000)]
+#     Threads.@threads for (k,l) in collect(Iterators.product(1:2N+1,1:2N+1))
+#         S0 = SN2F(N,(m,m),(k,l))
+#         Sn0 = SN2F(N,(m-h,m),(k,l))
+#         # S0n = SN2F(N,(m,m-h),(k,l))
+#         # var += norm([Smin(S0,Sn0); Smin(S0,S0n)])^2
+#         # norm() can't handle complex coeffs though
+#         r0 = dropdims(freqresp(S0,w); dims=(1,2))
+#         rn0 = dropdims(freqresp(Sn0,w); dims=(1,2))
+#         var[Threads.threadid()] += integrate(w, (abs.(r0-rn0)).^2)*2/π
+#     end
+#     return sum(var)/(2N+1)^2
+# end
 
-"(k,l) element of F'SF which removes double summation in each element of the S matrix"
-function SN2F(N::Int, (m,n)::Tuple{Int,Int}, (k,l)::Tuple{Int,Int})
-    p = tf(1, [1,0,0]) # tf(1, [1,0]) or tf(1, [1,0,0])
-    c = tf([1,1],[1]) # 1 or tf([1,1],[1])
-    g = p*c
-    omg = exp(-im*2π/(2N+1))
-    σij = sin(π*(k-1)/(2N+1))^2+sin(π*(l-1)/(2N+1))^2
-    Skl = p*omg^(k*(1-m)+l*(n-1)+(m-n))/(1+4g*σij)
-    return Skl
-end
+# "(k,l) element of F'SF which removes double summation in each element of the S matrix"
+# function SN2F(N::Int, (m,n)::Tuple{Int,Int}, (k,l)::Tuple{Int,Int})
+#     p = tf(1, [1,0,0]) # tf(1, [1,0]) or tf(1, [1,0,0])
+#     c = tf([1,1],[1]) # 1 or tf([1,1],[1])
+#     g = p*c
+#     omg = exp(-im*2π/(2N+1))
+#     σij = sin(π*(k-1)/(2N+1))^2+sin(π*(l-1)/(2N+1))^2
+#     Skl = p*omg^(k*(1-m)+l*(n-1)+(m-n))/(1+4g*σij)
+#     return Skl
+# end
 
 #=====SLOW (DOUBLE DOUBLE SUM) AND UNRELIABLE (SMIN + MINEREAL)===#
 # "variance of 2d bamieh consensus"
